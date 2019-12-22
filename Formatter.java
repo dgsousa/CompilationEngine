@@ -57,20 +57,24 @@ public class Formatter {
     }
 
     public String removeWhitespaceAndComments(String line) {
-        int counter = 0;
-        String formatted = "";
-        char[] chars = line.toCharArray();
-        System.out.println(line);
-        while(chars.length == 0 || chars[counter] == ' ') {
-            counter++;
+        if(line.length() == 1) {
+            return line;
         }
-        while(
-            counter < chars.length &&
-            chars[counter] != '/') {
-                formatted = formatted + chars[counter];
+        int counter = 0;
+        Boolean isComment = false;
+        while((counter < line.length() - 1) && !isComment) {
+            if(line.substring(counter, counter + 2).equals("//")) {
+                isComment = true;
+            } else {
                 counter++;
             }
-        return formatted;
+        }
+        if(isComment) {
+            System.out.println(line.substring(0, counter));
+            return line.substring(0, counter);
+        }
+        System.out.println(line);
+        return line;
     }
 
     public List<String> format(ArrayList<String> contents) {
