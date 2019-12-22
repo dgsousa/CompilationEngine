@@ -9,27 +9,27 @@ public class Tokenizer {
         add("<tokens>");
     }};
 
-    HashMap<String, Boolean> symbolMap = new HashMap<String, Boolean>() {{
-        put("{", true);
-        put("}", true);
-        put("(", true);
-        put(")", true);
-        put("[", true);
-        put("]", true);
-        put(".", true);
-        put(",", true);
-        put(";", true);
-        put("+", true);
-        put("-", true);
-        put("*", true);
-        put("/", true);
-        put("&", true);
-        put("|", true);
-        put("\\", true);
-        put("<", true);
-        put(">", true);
-        put("=", true);
-        put("~", true);
+    HashMap<String, String> symbolMap = new HashMap<String, String>() {{
+        put("{", "{");
+        put("}", "}");
+        put("(", "(");
+        put(")", ")");
+        put("[", "[");
+        put("]", "]");
+        put(".", ".");
+        put(",", ",");
+        put(";", ";");
+        put("+", "+");
+        put("-", "-");
+        put("*", "*");
+        put("/", "/");
+        put("&", "&amp;");
+        put("|", "|");
+        put("\\", "\\");
+        put("<", "&lt;");
+        put(">", "&gt;");
+        put("=", "=");
+        put("~", "~");
     }};
 
     HashMap<String, Boolean> keywordMap = new HashMap<String, Boolean>() {{
@@ -72,7 +72,7 @@ public class Tokenizer {
         if(token.chars().allMatch(Character::isDigit)) {
             tokens.add("<integerConstant>" + token + "</integerConstant>");
         } else if(isSymbol(token)) {
-            tokens.add("<symbol>" + token + "</symbol>");
+            tokens.add("<symbol>" + symbolMap.get(token) + "</symbol>");
         } else if(isKeyword(token)) {
             tokens.add("<keyword>" + token + "</keyword>");
         } else {
@@ -96,8 +96,7 @@ public class Tokenizer {
                     currChar = line.charAt(counter);
                 }
                 addStringToken(current);
-                counter++;
-                currChar = line.charAt(counter);
+                current = "";
             } else if(currChar == ' ' || currChar == '\t') {
                 if(current.length() > 0) {
                     addToken(current);
