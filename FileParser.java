@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 public class FileParser {
     String path;
     String inputExt = "jack";
-    String outputExt = "xxml";
+    String outputExt = "xml";
 
     public Boolean validateFileType(String path) {
         String[] fileNameArr = path.split("\\.");
@@ -16,7 +16,7 @@ public class FileParser {
 
     public String getOutputFilePath(String path) {
         String[] fileNameArr = path.split("\\/");
-        String outputFile = fileNameArr[fileNameArr.length - 1].split("\\.")[0] + "." + this.outputExt;
+        String outputFile = fileNameArr[fileNameArr.length - 1].split("\\.")[0] + "TT." + this.outputExt;
         fileNameArr[fileNameArr.length - 1] = outputFile;
         return String.join("/", fileNameArr);
     }

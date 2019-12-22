@@ -70,10 +70,8 @@ public class Formatter {
             }
         }
         if(isComment) {
-            System.out.println(line.substring(0, counter));
             return line.substring(0, counter);
         }
-        System.out.println(line);
         return line;
     }
 
