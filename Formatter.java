@@ -5,7 +5,9 @@ import java.util.stream.Collectors;
 public class Formatter {
 
     public Boolean isNotBlankLineOrComment(String line) {
-        return line.length() >= 2 && !line.substring(0, 2).equals("//");
+        return line.length() >= 1
+            && !(line.length() >= 2 && line.substring(0, 2).equals("//"))
+            && !(line.length() >= 2 && line.substring(0, 2).equals("/*"));
     }
 
     public String removeWhitespaceAndComments(String line) {

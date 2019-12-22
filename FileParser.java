@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 public class FileParser {
     String path;
     String inputExt = "jack";
-    String outputExt = "xml";
+    String outputExt = "xxml";
 
     public Boolean validateFileType(String path) {
         String[] fileNameArr = path.split("\\.");
@@ -43,7 +43,7 @@ public class FileParser {
 
     public void translateFile(BufferedReader br, BufferedWriter bw, String fileName) throws Exception {
         Formatter formatter = new Formatter();
-        // Translator translator = new Translator(fileName);
+        Tokenizer tokenizer = new Tokenizer();
         String st;
         ArrayList<String> contents = new ArrayList<String>();
         
@@ -52,8 +52,8 @@ public class FileParser {
         }
         
         List<String> formattedContents = formatter.format(contents);
-        // List<String> jackCode = translator.translate(formattedContents);
-        formattedContents.forEach(line -> {
+        List<String> tokens = tokenizer.tokenize(formattedContents);
+        tokens.forEach(line -> {
             try {
                 bw.write(line + "\n");
             } catch(IOException e) {
