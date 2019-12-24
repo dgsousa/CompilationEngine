@@ -54,10 +54,6 @@ public class CompilationEngine {
             counter++;
         }
 
-        if(counter == tokens.size()) {
-            System.out.println("getSubroutineBodyIndex: terminalIndex - " + counter);
-        }
-
         return counter;
     }
 
@@ -65,31 +61,6 @@ public class CompilationEngine {
         int counter = beginIndex;
         while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals("var")) {
             counter++;
-        }
-
-        if(counter == tokens.size()) {
-            System.out.println("getVarDecIndex: terminalIndex - " + counter);
-        }
-
-        return counter;
-    }
-
-    public int getTokenIndex(List<String> tokens) {
-        int counter = 0;
-        while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(";")) {
-            counter++;
-        }
-        return counter;
-    }
-
-    public int getParenIndex(List<String> tokens, int beginIndex) {
-        int counter = beginIndex;
-        while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(")")) {
-            counter++;
-        }
-
-        if(counter == tokens.size()) {
-            System.out.println("getParenIndex: terminalIndex - " + counter);
         }
 
         return counter;
@@ -113,16 +84,6 @@ public class CompilationEngine {
         return counter;
     }
 
-    public int getEqualsIndex(List<String> tokens, int beginIndex) {
-        int counter = beginIndex;
-        String currentToken = getTokenString(tokens.get(counter));
-        while(!currentToken.equals("=") && counter < tokens.size() - 1) {
-            counter++;
-            currentToken = getTokenString(tokens.get(counter));
-        }
-        return counter;
-    }
-
     public String compileVarDec(List<String> tokens) {
         String varDecString = "";
         int commaIndex = 3;
@@ -133,7 +94,6 @@ public class CompilationEngine {
         } else if(!getTokenType(tokens.get(2)).equals("identifier")) {
             return "Syntax Error - Missing var name\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
-            System.out.println("compileVarDec: " + tokens + "\n");
             return "Syntax Error - Missing terminal token ';'\n";
         }
 
@@ -165,13 +125,12 @@ public class CompilationEngine {
 
     public String compileLet(List<String> tokens) {
         String letString = "";
-        int equalsIndex = getEqualsIndex(tokens, 0);
+        int equalsIndex = getTokenIndex(tokens, "=");
         if(!getTokenString(tokens.get(0)).equals("let")) {
             return "Syntax Error - Must have let declaration\n";
         } else if(!getTokenType(tokens.get(1)).equals("identifier")) {
             return "Syntax Error - Let statement missing name\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
-            System.out.println("compileLet: " + tokens + "\n");
             return "Syntax Error - Let statement missing terminal declaration ';'\n";
         }
 
@@ -234,7 +193,7 @@ public class CompilationEngine {
 
     public String compileWhile(List<String> tokens) {
         String whileString = "";
-        int parenIndex = getParenIndex(tokens, 0);
+        int parenIndex = getTokenIndex(tokens, ")");
 
         if(!getTokenString(tokens.get(0)).equals("while")) {
             return "Syntax Error - Must have while declaration\n";
@@ -245,7 +204,6 @@ public class CompilationEngine {
         } else if(!getTokenString(tokens.get(parenIndex + 1)).equals("{")) {
             return "Syntax Error - while statement missing symbol '{'\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals("}")) {
-            System.out.println("compileWhile: " + tokens + "\n");
             return "Syntax Error - while statement missing symbol '}'\n";
         }
 
@@ -266,19 +224,18 @@ public class CompilationEngine {
 
     public String compileDo(List<String> tokens) {
         String doString = "";
-        int parenIndex = getParenIndex(tokens, 0);
+        int parenIndex = getTokenIndex(tokens, ")");
 
         if(!getTokenString(tokens.get(0)).equals("do")) {
             return "Syntax Error - Must have do declaration\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
-            System.out.println("compileDo: " + tokens + "\n");
             return "Syntax Error - while statement missing symbol ';'\n";
         }
 
         doString += (
             "<doStatement>\n" +
             tokens.get(0) + "\n" +
-            "SUBROUTINECALL\n" +
+            compileSubroutineCall(tokens.subList(1, tokens.size() - 1)) +
             tokens.get(tokens.size() - 1) + "\n" +
             "</doStatement>\n"
         );
@@ -292,7 +249,6 @@ public class CompilationEngine {
         if(!getTokenString(tokens.get(0)).equals("return")) {
             return "Syntax Error - Must have return declaration\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
-            System.out.println("compileReturn: " + tokens + "\n");
             return "Syntax Error - return statement missing symbol ';'\n";
         }
 
