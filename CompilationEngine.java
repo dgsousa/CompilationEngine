@@ -12,6 +12,14 @@ public class CompilationEngine {
         return tokenArr[1].split("<")[0];
     }
 
+    public int getTokenIndex(List<String> tokens, String token) {
+        int counter = 0;
+        while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(token)) {
+            counter++;
+        }
+        return counter;
+    }
+
     public Boolean isVarDec(String token) {
         return token.equals("static")
         || token.equals("field");
@@ -32,10 +40,9 @@ public class CompilationEngine {
         || token.equals("return");
     }
 
-    public int getNextSubroutineIndex(List<String> tokens, int beginIndex) {
-        int counter = beginIndex;
-        System.out.println(tokens);
-        while(!isSubroutineDec(getTokenString(tokens.get(counter))) && counter < tokens.size() - 1) {
+    public int getSubroutineIndex(List<String> tokens) {
+        int counter = 0;
+        while(counter < tokens.size() && !isSubroutineDec(getTokenString(tokens.get(counter)))) {
             counter++;
         }
         return counter;
@@ -46,12 +53,30 @@ public class CompilationEngine {
         while(!getTokenString(tokens.get(counter)).equals("{") && counter < tokens.size()) {
             counter++;
         }
+
+        if(counter == tokens.size()) {
+            System.out.println("getSubroutineBodyIndex: terminalIndex - " + counter);
+        }
+
         return counter;
     }
 
     public int getVarDecIndex(List<String> tokens, int beginIndex) {
         int counter = beginIndex;
-        while(!getTokenString(tokens.get(counter)).equals("var") && counter < tokens.size() - 1) {
+        while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals("var")) {
+            counter++;
+        }
+
+        if(counter == tokens.size()) {
+            System.out.println("getVarDecIndex: terminalIndex - " + counter);
+        }
+
+        return counter;
+    }
+
+    public int getTokenIndex(List<String> tokens) {
+        int counter = 0;
+        while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(";")) {
             counter++;
         }
         return counter;
@@ -59,32 +84,32 @@ public class CompilationEngine {
 
     public int getParenIndex(List<String> tokens, int beginIndex) {
         int counter = beginIndex;
-        while(!getTokenString(tokens.get(counter)).equals(")") && counter < tokens.size() - 1) {
+        while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(")")) {
             counter++;
         }
+
+        if(counter == tokens.size()) {
+            System.out.println("getParenIndex: terminalIndex - " + counter);
+        }
+
         return counter;
     }
 
-    public int getStatementsIndex(List<String> tokens, int beginIndex, Boolean initial) {
-        int counter = beginIndex;
+    public int getStatementsIndex(List<String> tokens) {
+        int counter = 0;
         int blockCount = 0;
-        int insideBlock = initial ? 1 : 0;
-        String currentToken = getTokenString(tokens.get(counter));
-        while(counter < tokens.size() && !(isStatementDec(currentToken) && blockCount == insideBlock)) {
+        String currentToken;
+        while(counter < tokens.size() && !(isStatementDec(getTokenString(tokens.get(counter))) && blockCount == 0)) {
+            currentToken = getTokenString(tokens.get(counter));
             if(currentToken.equals("{")) {
                 blockCount += 1;
             }
             if(currentToken.equals("}")) {
                 blockCount -= 1;
             }
-            // System.out.println("counter: " + counter);
-            // System.out.println("currentToken: " + currentToken);
-            // System.out.println("blockCount: " + blockCount);
             counter++;
-            if(counter < tokens.size() - 1) {
-                currentToken = getTokenString(tokens.get(counter));
-            }
         }
+
         return counter;
     }
 
@@ -107,6 +132,9 @@ public class CompilationEngine {
             return "Syntax Error - Missing type\n";
         } else if(!getTokenType(tokens.get(2)).equals("identifier")) {
             return "Syntax Error - Missing var name\n";
+        } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
+            System.out.println("compileVarDec: " + tokens + "\n");
+            return "Syntax Error - Missing terminal token ';'\n";
         }
 
         varDecString = (
@@ -142,6 +170,9 @@ public class CompilationEngine {
             return "Syntax Error - Must have let declaration\n";
         } else if(!getTokenType(tokens.get(1)).equals("identifier")) {
             return "Syntax Error - Let statement missing name\n";
+        } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
+            System.out.println("compileLet: " + tokens + "\n");
+            return "Syntax Error - Let statement missing terminal declaration ';'\n";
         }
 
         letString += (
@@ -214,6 +245,7 @@ public class CompilationEngine {
         } else if(!getTokenString(tokens.get(parenIndex + 1)).equals("{")) {
             return "Syntax Error - while statement missing symbol '{'\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals("}")) {
+            System.out.println("compileWhile: " + tokens + "\n");
             return "Syntax Error - while statement missing symbol '}'\n";
         }
 
@@ -229,7 +261,6 @@ public class CompilationEngine {
             "</whileStatement>"
         );
 
-        // System.out.println(whileString + "\n\n\n");
         return whileString;
     }
 
@@ -240,6 +271,7 @@ public class CompilationEngine {
         if(!getTokenString(tokens.get(0)).equals("do")) {
             return "Syntax Error - Must have do declaration\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
+            System.out.println("compileDo: " + tokens + "\n");
             return "Syntax Error - while statement missing symbol ';'\n";
         }
 
@@ -251,7 +283,6 @@ public class CompilationEngine {
             "</doStatement>\n"
         );
         
-        // System.out.println(doString + "\n");
         return doString;
     }
 
@@ -261,7 +292,7 @@ public class CompilationEngine {
         if(!getTokenString(tokens.get(0)).equals("return")) {
             return "Syntax Error - Must have return declaration\n";
         } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
-            System.out.println("return tokens: " + tokens);
+            System.out.println("compileReturn: " + tokens + "\n");
             return "Syntax Error - return statement missing symbol ';'\n";
         }
 
@@ -276,21 +307,21 @@ public class CompilationEngine {
 
         returnString += (
             tokens.get(tokens.size() - 1) + "\n" +
-            "</return>"
+            "</return>\n"
         );
 
-        // System.out.println(returnString + "\n");
         return returnString;
     }
 
     public String compileStatements(List<String> tokens) {
         String compiledStatements = "<statements>\n";
-        int statementsIndex = getStatementsIndex(tokens, 0, false);
-        String currentStatementType = getTokenString(tokens.get(statementsIndex));
+        int statementsIndex = getStatementsIndex(tokens);
+        String currentStatementType;
         int nextStatementsIndex;
         
-        while(statementsIndex < tokens.size()) {
-            nextStatementsIndex = getStatementsIndex(tokens, statementsIndex + 1, false);
+        while(statementsIndex < tokens.size() && isStatementDec(getTokenString(tokens.get(statementsIndex)))) {
+            currentStatementType = getTokenString(tokens.get(statementsIndex));
+            nextStatementsIndex = getStatementsIndex(tokens.subList(statementsIndex + 1, tokens.size())) + statementsIndex + 1;
             List<String> subList = tokens.subList(statementsIndex, nextStatementsIndex);
             if(currentStatementType.equals("let")) {
                 compiledStatements += compileLet(subList);
@@ -301,14 +332,9 @@ public class CompilationEngine {
             } else if(currentStatementType.equals("do")) {
                 compiledStatements += compileDo(subList);
             } else if(currentStatementType.equals("return")) {
-                // System.out.println("statementsIndex: " + statementsIndex);
-                // System.out.println("nextStatementsIndex: " + nextStatementsIndex);
                 compiledStatements += compileReturn(subList);
             }
             statementsIndex = nextStatementsIndex;
-            if(statementsIndex < tokens.size() - 1) {
-                currentStatementType = getTokenString(tokens.get(statementsIndex));
-            }
         }
 
         compiledStatements += "</statements>\n";
@@ -316,11 +342,12 @@ public class CompilationEngine {
     }
 
     public String compileSubroutineDec(List<String> tokens) {
-        int subroutineBodyIndex = getSubroutineBodyIndex(tokens, 0);
-        int varDecIndex = getVarDecIndex(tokens, 0);
-        int statementsIndex = getStatementsIndex(tokens, 0, true);
-        int nextVarDecIndex;
-        String compiledSubroutine = "";
+        int subroutineBodyIndex = getTokenIndex(tokens, "{");
+        int varDecIndex = subroutineBodyIndex + 1;
+        int statementsIndex = subroutineBodyIndex + 1;
+        int endVarDecIndex;
+        String compiledSubroutine;
+
         if(!isSubroutineDec(getTokenString(tokens.get(0)))) {
             return "Syntax Error - should be Subroutine declaration";
         } else if(!(getTokenType(tokens.get(1)).equals("keyword") || getTokenType(tokens.get(1)).equals("identifier"))) {
@@ -341,15 +368,17 @@ public class CompilationEngine {
             tokens.get(subroutineBodyIndex) + "\n"
         );
 
-        while(varDecIndex < statementsIndex) {
-            nextVarDecIndex = getVarDecIndex(tokens.subList(0, statementsIndex + 1), varDecIndex + 1);
-            // System.out.println(varDecIndex);
-            // System.out.println(nextVarDecIndex);
-            compiledSubroutine += compileVarDec(tokens.subList(varDecIndex, nextVarDecIndex));
-            varDecIndex = nextVarDecIndex;
+        if(getTokenString(tokens.get(varDecIndex)).equals("var")) {
+            while(varDecIndex < tokens.size() && getTokenString(tokens.get(varDecIndex)).equals("var")) {
+                endVarDecIndex = getTokenIndex(tokens.subList(varDecIndex, tokens.size()), ";") + varDecIndex;
+                compiledSubroutine += compileVarDec(tokens.subList(varDecIndex, endVarDecIndex + 1));
+                varDecIndex = endVarDecIndex + 1;
+            }
+            statementsIndex = varDecIndex;
         }
+        
 
-        compiledSubroutine += compileStatements(tokens.subList(statementsIndex, tokens.size() - 1));
+        compiledSubroutine += compileStatements(tokens.subList(statementsIndex, tokens.size() - 1)); // clip off terminal '}'
 
         compiledSubroutine += tokens.get(tokens.size() - 1) + "\n";
         compiledSubroutine += "</subroutineBody>\n";
@@ -362,9 +391,9 @@ public class CompilationEngine {
     // }
 
     public String compileClass(List<String> tokens) {
-        int subroutineBeginIndex = getNextSubroutineIndex(tokens, 0);
+        int lastSubroutineIndex = getSubroutineIndex(tokens);
         int nextSubroutineIndex;
-        String compiledClass = "";
+        String compiledClass;
         if(!tokens.get(0).equals("<keyword>class</keyword>")) {
             return "Syntax Error - No 'class' token";
         } else if(!getTokenType(tokens.get(1)).equals("identifier")) {
@@ -382,12 +411,10 @@ public class CompilationEngine {
             tokens.get(2) + "\n"
         );
 
-        while(subroutineBeginIndex < tokens.size() - 1) {
-            nextSubroutineIndex = getNextSubroutineIndex(tokens, subroutineBeginIndex + 1);
-            // System.out.println(subroutineBeginIndex);
-            // System.out.println(nextSubroutineIndex);
-            compiledClass += compileSubroutineDec(tokens.subList(subroutineBeginIndex, nextSubroutineIndex));
-            subroutineBeginIndex = nextSubroutineIndex;
+        while(lastSubroutineIndex < tokens.size() && isSubroutineDec(getTokenString(tokens.get(lastSubroutineIndex)))) {
+            nextSubroutineIndex = getSubroutineIndex(tokens.subList(lastSubroutineIndex + 1, tokens.size() - 1)) + lastSubroutineIndex + 1;
+            compiledClass += compileSubroutineDec(tokens.subList(lastSubroutineIndex, nextSubroutineIndex));
+            lastSubroutineIndex = nextSubroutineIndex;
         }
 
         compiledClass += (
@@ -395,17 +422,16 @@ public class CompilationEngine {
             "</class>"
         );
 
-        // System.out.println(compiledClass);
+        System.out.println(compiledClass);
         return compiledClass;
     }
 
     public List<String> compile(List<String> tokens) throws Exception {
         if(!tokens.get(0).equals("<tokens>") || !tokens.get(tokens.size() - 1).equals("</tokens>")) {
             System.out.println("Syntax Error - No 'tokens' token");
-            return tokens;
+            return new ArrayList<String>();
         } else {
             String compiledTokenString = compileClass(new ArrayList<String>(tokens.subList(1, tokens.size() - 1)));
-            // System.out.println("compiledTokenString: " + compiledTokenString);
             List<String> compiledTokens = new ArrayList<String>() {{
                 compiledTokenString.split("\n");
             }};
