@@ -44,6 +44,7 @@ public class FileParser {
     public void translateFile(BufferedReader br, BufferedWriter bw, String fileName) throws Exception {
         Formatter formatter = new Formatter();
         Tokenizer tokenizer = new Tokenizer();
+        CompilationEngine compilationEngine = new CompilationEngine();
         String st;
         ArrayList<String> contents = new ArrayList<String>();
         
@@ -53,6 +54,7 @@ public class FileParser {
         
         List<String> formattedContents = formatter.format(contents);
         List<String> tokens = tokenizer.tokenize(formattedContents);
+        List<String> xml = compilationEngine.compile(tokens);
         tokens.forEach(line -> {
             try {
                 bw.write(line + "\n");
