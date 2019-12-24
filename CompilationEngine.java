@@ -1,5 +1,6 @@
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class CompilationEngine {
     public String getTokenType(String token) {
@@ -14,13 +15,36 @@ public class CompilationEngine {
 
     public int getTokenIndex(List<String> tokens, String token) {
         int counter = 0;
+        
         while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(token)) {
             counter++;
         }
         return counter;
     }
 
-    public Boolean isVarDec(String token) {
+    public Boolean isOp(String token) {
+        return (
+            token.equals("+")
+            || token.equals("-")
+            || token.equals("*")
+            || token.equals("/")
+            || token.equals("&amp;")
+            || token.equals("|")
+            || token.equals("&lt;")
+            || token.equals("&gt;")
+            || token.equals("=")
+        );
+    }
+
+    public int getOpIndex(List<String> tokens) {
+        int counter = 0;
+        while(counter < tokens.size() && !isOp(getTokenString(tokens.get(counter)))) {
+            counter++;
+        }
+        return counter;
+    }
+
+    public Boolean isClassVarDec(String token) {
         return token.equals("static")
         || token.equals("field");
     }
@@ -34,10 +58,17 @@ public class CompilationEngine {
     public Boolean isStatementDec(String token) {
         return token.equals("let")
         || token.equals("if")
-        || token.equals("else")
         || token.equals("while")
         || token.equals("do")
         || token.equals("return");
+    }
+
+    public int getClassVarDecIndex(List<String> tokens) {
+        int counter = 0;
+        while(counter < tokens.size() && !isClassVarDec(getTokenString(tokens.get(counter)))) {
+            counter++;
+        }
+        return counter;
     }
 
     public int getSubroutineIndex(List<String> tokens) {
@@ -104,7 +135,7 @@ public class CompilationEngine {
             tokens.get(2) + "\n"
         );
 
-        while(getTokenString(tokens.get(commaIndex)).equals(",")) {
+        while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
             varDecString += tokens.get(commaIndex) + "\n";
             if(!getTokenType(tokens.get(commaIndex + 1)).equals("identifier")) {
                 return "Syntax Error - Missing var Name\n";
@@ -119,8 +150,160 @@ public class CompilationEngine {
         return varDecString;
     }
 
+    public String compileSubroutineCall(List<String> tokens) {
+        if(getTokenType(tokens.get(0)).equals("identifier") && getTokenString(tokens.get(1)).equals(".") ) {
+            return (
+                tokens.get(0) + "\n" +
+                tokens.get(1) + "\n" +
+                compileSubroutineCall(tokens.subList(2, tokens.size()))
+            );
+        }
+
+        if(getTokenType(tokens.get(0)).equals("identifier")
+            && getTokenString(tokens.get(1)).equals("(")
+            && getTokenString(tokens.get(tokens.size() - 1)).equals(")")) {
+            return (
+                tokens.get(0) + "\n" +
+                tokens.get(1) + "\n" +
+                compileExpressionList(tokens.subList(2, tokens.size() - 1)) +
+                tokens.get(tokens.size() - 1) + "\n"
+            );
+        }
+
+        return "Invalid Format - cannot parse subroutineCall\n";
+    }
+
+    public int getTopLevelCommaIndex(List<String> tokens) {
+        int counter = 0;
+        int parenCounter = 0;
+        while(counter < tokens.size() && !(getTokenString(tokens.get(counter)).equals(",") && parenCounter == 0)) {
+            if(getTokenString(tokens.get(counter)).equals("(")) {
+                parenCounter += 1;
+            } else if(getTokenString(tokens.get(counter)).equals(")")) {
+                parenCounter -= 1;
+            }
+            counter++;
+        }
+        return counter;
+    }
+
+    public String compileExpressionList(List<String> tokens) {
+        String expressionListString;
+        int topLevelCommaIndex;
+        int nextTopLevelCommaIndex;
+        
+        expressionListString = "<expressionList>\n";
+
+        if(tokens.size() > 0) {
+            topLevelCommaIndex = getTopLevelCommaIndex(tokens);
+
+            expressionListString += (
+                compileExpression(tokens.subList(0, topLevelCommaIndex))
+            );
+
+            while(topLevelCommaIndex < tokens.size() && getTokenString(tokens.get(topLevelCommaIndex)).equals(",")) {
+                nextTopLevelCommaIndex = getTopLevelCommaIndex(tokens.subList(topLevelCommaIndex + 1, tokens.size())) + topLevelCommaIndex + 1;
+                expressionListString += (
+                    tokens.get(topLevelCommaIndex) + "\n" +
+                    compileExpression(tokens.subList(topLevelCommaIndex + 1, nextTopLevelCommaIndex))
+                );
+                topLevelCommaIndex = nextTopLevelCommaIndex;
+            }
+        }
+
+        expressionListString += "</expressionList>\n";
+        return expressionListString;
+    }
+
     public String compileExpression(List<String> tokens) {
-        return "EXPRESSION\n";
+        String expressionString = "";
+        int opIndex = getOpIndex(tokens.subList(1, tokens.size())) + 1;
+        int nextOpIndex;
+
+        expressionString = (
+            "<expression>\n" +
+            compileTerm(tokens.subList(0, opIndex))
+        );
+
+        while(opIndex < tokens.size() && isOp(getTokenString(tokens.get(opIndex)))) {
+            nextOpIndex = getOpIndex(tokens.subList(opIndex + 1, tokens.size())) + opIndex + 1;
+            expressionString += (
+                tokens.get(opIndex) + "\n" +
+                compileTerm(tokens.subList(opIndex + 1, nextOpIndex))
+            );
+            opIndex = nextOpIndex;
+        }
+
+        expressionString += (
+            "</expression>\n"
+        );
+
+        return expressionString;
+    }
+
+    public String compileTerm(List<String> tokens) {
+        String firstTokenType = getTokenType(tokens.get(0));
+        // intergerConstant | stringConstant | keywordConstant || varName
+        if(tokens.size() == 1) {
+            if(!(firstTokenType.equals("integerConstant")
+                || firstTokenType.equals("stringConstant")
+                || firstTokenType.equals("keyword")
+                || firstTokenType.equals("identifier"))) {
+                return "Invalid Format - Wrong Token Type";
+            }
+            return (
+                "<term>\n" +
+                tokens.get(0) + "\n" +
+                "</term>\n"
+            );  
+        }
+
+        // varName [ expression ]
+        if(getTokenType(tokens.get(0)).equals("identifier")
+            && getTokenString(tokens.get(1)).equals("[")
+            && getTokenString(tokens.get(tokens.size() - 1)).equals("]")) {
+            return (
+                "<term>\n" +
+                tokens.get(0) + "\n" +
+                tokens.get(1) + "\n" +
+                compileExpression(tokens.subList(2, tokens.size() - 1)) +
+                tokens.get(tokens.size() - 1) + "\n" +
+                "</term>\n" 
+            );
+        }
+
+        // subRoutineCall
+        if(getTokenType(tokens.get(0)).equals("identifier")
+            && (getTokenString(tokens.get(1)).equals("(") || getTokenString(tokens.get(1)).equals("."))) {
+            return (
+                "<term>\n" +
+                compileSubroutineCall(tokens) +
+                "</term>\n" 
+            );
+        }
+
+        // ( expression )
+        if(getTokenString(tokens.get(0)).equals("(") && getTokenString(tokens.get(tokens.size() - 1)).equals(")")) {
+            return (
+                "<term>\n" +
+                tokens.get(0) + "\n" +
+                compileExpression(tokens.subList(1, tokens.size() - 1)) +
+                tokens.get(tokens.size() - 1) + "\n" +
+                "</term>\n"
+            );
+        }
+
+        // unaryOp term
+        if(isOp(getTokenString(tokens.get(0)))) {
+            return (
+                "<term>\n" +
+                tokens.get(0) + "\n" +
+                compileTerm(tokens.subList(1, tokens.size())) + "\n" + // only clip off the first token
+                "<term>\n"
+            );
+        }
+        
+        return "Invalid Format - Tokens do not correspond to valid term\n" + tokens + "\n";
     }
 
     public String compileLet(List<String> tokens) {
@@ -147,7 +330,7 @@ public class CompilationEngine {
         if(equalsIndex != 2) {
             letString += (
                 tokens.get(2) + "\n" +
-                compileExpression(tokens.subList(3, equalsIndex - 2)) +
+                compileExpression(tokens.subList(3, equalsIndex - 1)) +
                 tokens.get(equalsIndex - 1) + "\n"
             );
         }
@@ -161,34 +344,46 @@ public class CompilationEngine {
     }
 
     public String compileIf(List<String> tokens) {
-        // String ifString = "";
-        // int parenIndex = getParenIndex(tokens, 0);
+        String ifString = "";
+        int parenIndex = getTokenIndex(tokens, ")");
+        int ifBracketIndex = getTokenIndex(tokens, "}");
+        int elseIndex = getTokenIndex(tokens, "else");
+        
+        if(!getTokenString(tokens.get(0)).equals("if")) {
+            return "Syntax Error - Must have if declaration\n";
+        } else if(!getTokenString(tokens.get(1)).equals("(")) {
+            return "Syntax Error - if statement missing symbol '('\n";
+        } else if(!getTokenString(tokens.get(parenIndex)).equals(")")) {
+            return "Syntax Error - if statement missing symbol ')'\n";
+        } else if(!getTokenString(tokens.get(parenIndex + 1)).equals("{")) {
+            return "Syntax Error - if statement missing symbol '{'\n";
+        } else if(!getTokenString(tokens.get(ifBracketIndex)).equals("}")) {
+            return "Syntax Error - if statement missing symbol '{'\n";
+        }
 
-        // if(!getTokenString(tokens.get(0)).equals("if")) {
-        //     return "Syntax Error - Must have if declaration\n";
-        // } else if(!getTokenString(tokens.get(1)).equals("(")) {
-        //     return "Syntax Error - if statement missing symbol '('\n";
-        // } else if(!getTokenString(tokens.get(parenIndex)).equals(")")) {
-        //     return "Syntax Error - if statement missing symbol ')'\n";
-        // } else if(!getTokenString(tokens.get(parenIndex + 1)).equals("{")) {
-        //     return "Syntax Error - if statement missing symbol '{'"
-        // }
+        ifString += (
+            "<ifStatement>\n" +
+            tokens.get(0) + "\n" +
+            tokens.get(1) + "\n" +
+            compileExpression(tokens.subList(2, parenIndex)) +
+            tokens.get(parenIndex) + "\n" +
+            tokens.get(parenIndex + 1) + "\n" +
+            compileStatements(tokens.subList(parenIndex + 2, ifBracketIndex)) +
+            tokens.get(ifBracketIndex) + "\n"
+        );
 
-        // ifString += (
-        //     "<ifStatement>\n" +
-        //     tokens.get(0) + "\n" +
-        //     tokens.get(1) + "\n" +
-        //     compileExpression(tokens.subList(2, parenIndex)) +
-        //     tokens.get(parenIndex) + "\n" +
-        //     tokens.get(parenIndex + 1) + "\n" +
-        //     compileStatements(tokens.subList(parenIndex + 2, ))
-        // );
+        if(elseIndex < tokens.size() && getTokenString(tokens.get(elseIndex)).equals("else")) {
+            ifString += (
+                tokens.get(elseIndex) + "\n" +
+                tokens.get(elseIndex + 1) + "\n" +
+                compileStatements(tokens.subList(elseIndex + 2, tokens.size() - 1)) +
+                tokens.get(tokens.size() - 1) + "\n"
+            );
+        }
 
-        // ifString += tokens.get(tokens.size() - 1) + "\n";
-        // ifString += "</ifStatement>\n";
+        ifString += "</ifStatement>\n";
 
-        // return ifString;
-        return "ifStatement";
+        return ifString;
     }
 
     public String compileWhile(List<String> tokens) {
@@ -216,9 +411,8 @@ public class CompilationEngine {
             tokens.get(parenIndex + 1) + "\n" +
             compileStatements(tokens.subList(parenIndex + 2, tokens.size() - 1)) +
             tokens.get(tokens.size() - 1) + "\n" +
-            "</whileStatement>"
+            "</whileStatement>\n"
         );
-
         return whileString;
     }
 
@@ -253,7 +447,7 @@ public class CompilationEngine {
         }
 
         returnString += (
-            "<return>\n" +
+            "<returnStatement>\n" +
             tokens.get(0) + "\n"
         );
 
@@ -263,7 +457,7 @@ public class CompilationEngine {
 
         returnString += (
             tokens.get(tokens.size() - 1) + "\n" +
-            "</return>\n"
+            "</returnStatement>\n"
         );
 
         return returnString;
@@ -318,7 +512,7 @@ public class CompilationEngine {
             tokens.get(1) + "\n" +
             tokens.get(2) + "\n" +
             tokens.get(3) + "\n" +
-            "parameter list\n" + // compileParameterList(new ArrayList<String>(tokens.subList(4, subroutineBodyIndex - 1))) + "\n" + 
+            compileParameterList(new ArrayList<String>(tokens.subList(4, subroutineBodyIndex - 1))) + 
             tokens.get(subroutineBodyIndex - 1) + "\n" +
             "<subroutineBody>\n" +
             tokens.get(subroutineBodyIndex) + "\n"
@@ -342,12 +536,75 @@ public class CompilationEngine {
         return compiledSubroutine;
     }
 
-    // public String compileParameterList(List<String> tokens) {
+    public String compileParameterList(List<String> tokens) {
+        String parameterListString;
+        int commaIndex;
+        int nextCommaIndex;
+        
+        parameterListString = "<parameterList>\n";
 
-    // }
+        if(tokens.size() > 0) {
+            commaIndex = getTokenIndex(tokens, ",");
+
+            parameterListString += (
+                tokens.get(0) + "\n" +
+                tokens.get(1) + "\n"
+            );
+
+            while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
+                nextCommaIndex = getTokenIndex(tokens.subList(commaIndex + 1, tokens.size()), ",") + commaIndex + 1;
+                parameterListString += (
+                    tokens.get(commaIndex) + "\n" +
+                    tokens.get(commaIndex + 1) + "\n" +
+                    tokens.get(commaIndex + 2) + "\n"
+                );
+                commaIndex = nextCommaIndex;
+            }
+        }
+
+        parameterListString += "</parameterList>\n";
+        return parameterListString;
+    }
+
+    public String compileClassVarDec(List<String> tokens) {
+        int commaIndex;
+        int nextCommaIndex;
+        String classVarDecString;
+        if(!isClassVarDec(getTokenString(tokens.get(0)))) {
+            return "INVALID FORMAT - missing class variable declaration\n";
+        } else if(!(getTokenType(tokens.get(1)).equals("keyword") || getTokenType(tokens.get(1)).equals("identifier"))) {
+            return "INVALID FORMAT - class variable declaration missing type field";
+        } else if(!getTokenString(tokens.get(tokens.size() - 1)).equals(";")) {
+            return "INVALID FORMAT - class variable declaration missing terminal token ';'";
+        }
+
+        commaIndex = getTokenIndex(tokens, ",");
+
+        classVarDecString = (
+            "<classVarDec>\n" +
+            tokens.get(0) + "\n" +
+            tokens.get(1) + "\n" +
+            tokens.get(2) + "\n"
+        );
+
+        while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
+            nextCommaIndex = getTokenIndex(tokens.subList(commaIndex + 1, tokens.size()), ",") + commaIndex + 1;
+            classVarDecString += tokens.get(commaIndex) + "\n";
+            classVarDecString += tokens.get(commaIndex + 1) + "\n";
+            commaIndex = nextCommaIndex;
+        }
+
+        classVarDecString += (
+            tokens.get(tokens.size() - 1) + "\n" +
+            "</classVarDec>\n"
+        );
+        return classVarDecString;
+    }
 
     public String compileClass(List<String> tokens) {
-        int lastSubroutineIndex = getSubroutineIndex(tokens);
+        int lastClassVarDecIndex;
+        int nextClassVarDecIndex;
+        int lastSubroutineIndex;
         int nextSubroutineIndex;
         String compiledClass;
         if(!tokens.get(0).equals("<keyword>class</keyword>")) {
@@ -360,12 +617,21 @@ public class CompilationEngine {
             return "Syntax Error - Missing token '}' on class assignment";
         }
 
+        lastClassVarDecIndex = getClassVarDecIndex(tokens.subList(3, tokens.size() - 1)) + 3;
+        lastSubroutineIndex = getSubroutineIndex(tokens.subList(3, tokens.size() - 1)) + 3;
+
         compiledClass = (
             "<class>\n" +
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
             tokens.get(2) + "\n"
         );
+        
+        while(lastClassVarDecIndex < lastSubroutineIndex && isClassVarDec(getTokenString(tokens.get(lastClassVarDecIndex)))) {
+            nextClassVarDecIndex = getClassVarDecIndex(tokens.subList(lastClassVarDecIndex + 1, lastSubroutineIndex)) + lastClassVarDecIndex + 1;
+            compiledClass += compileClassVarDec(tokens.subList(lastClassVarDecIndex, nextClassVarDecIndex));
+            lastClassVarDecIndex = nextClassVarDecIndex;
+        }
 
         while(lastSubroutineIndex < tokens.size() && isSubroutineDec(getTokenString(tokens.get(lastSubroutineIndex)))) {
             nextSubroutineIndex = getSubroutineIndex(tokens.subList(lastSubroutineIndex + 1, tokens.size() - 1)) + lastSubroutineIndex + 1;
@@ -378,19 +644,15 @@ public class CompilationEngine {
             "</class>"
         );
 
-        System.out.println(compiledClass);
         return compiledClass;
     }
 
     public List<String> compile(List<String> tokens) throws Exception {
         if(!tokens.get(0).equals("<tokens>") || !tokens.get(tokens.size() - 1).equals("</tokens>")) {
-            System.out.println("Syntax Error - No 'tokens' token");
             return new ArrayList<String>();
         } else {
-            String compiledTokenString = compileClass(new ArrayList<String>(tokens.subList(1, tokens.size() - 1)));
-            List<String> compiledTokens = new ArrayList<String>() {{
-                compiledTokenString.split("\n");
-            }};
+            String compiledTokenString = compileClass(tokens.subList(1, tokens.size() - 1));
+            List<String> compiledTokens = Arrays.asList(compiledTokenString.split("\n"));
             return compiledTokens;
         }
     }

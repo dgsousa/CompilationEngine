@@ -1,9 +1,1 @@
-
-compile expressions
-
-
-
-
 compile If
-compile classVarDec
-compile parameterList

@@ -55,7 +55,7 @@ public class FileParser {
         List<String> formattedContents = formatter.format(contents);
         List<String> tokens = tokenizer.tokenize(formattedContents);
         List<String> xml = compilationEngine.compile(tokens);
-        tokens.forEach(line -> {
+        xml.forEach(line -> {
             try {
                 bw.write(line + "\n");
             } catch(IOException e) {
