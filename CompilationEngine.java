@@ -22,6 +22,13 @@ public class CompilationEngine {
         return counter;
     }
 
+    public Boolean isUnaryOp(String token) {
+        return (
+            token.equals("-")
+            || token.equals("~")
+        );
+    }
+
     public Boolean isOp(String token) {
         return (
             token.equals("+")
@@ -33,12 +40,35 @@ public class CompilationEngine {
             || token.equals("&lt;")
             || token.equals("&gt;")
             || token.equals("=")
+            || token.equals("~")
         );
     }
 
-    public int getOpIndex(List<String> tokens) {
+    public int getTopLevelOpIndex(List<String> tokens) {
         int counter = 0;
-        while(counter < tokens.size() && !isOp(getTokenString(tokens.get(counter)))) {
+        int parenCount = 0;
+        while(counter < tokens.size() && !(isOp(getTokenString(tokens.get(counter))) && parenCount == 0)) {
+            if(getTokenString(tokens.get(counter)).equals("(")) {
+                parenCount += 1;
+            }
+            if(getTokenString(tokens.get(counter)).equals(")")) {
+                parenCount -= 1;
+            }
+            counter++;
+        }
+        return counter;
+    }
+
+    public int getTopLevelParenIndex(List<String> tokens) {
+        int counter = 0;
+        int openParenCount = 0;
+        while(counter < tokens.size() && !(getTokenString(tokens.get(counter)).equals(")") && openParenCount == 1)) {
+            if(getTokenString(tokens.get(counter)).equals("(")) {
+                openParenCount += 1;
+            }
+            if(getTokenString(tokens.get(counter)).equals(")")) {
+                openParenCount -= 1;
+            }
             counter++;
         }
         return counter;
@@ -217,16 +247,25 @@ public class CompilationEngine {
 
     public String compileExpression(List<String> tokens) {
         String expressionString = "";
-        int opIndex = getOpIndex(tokens.subList(1, tokens.size())) + 1;
+        int opIndex = getTopLevelOpIndex(tokens.subList(0, tokens.size()));
         int nextOpIndex;
 
-        expressionString = (
-            "<expression>\n" +
-            compileTerm(tokens.subList(0, opIndex))
-        );
+        if(opIndex == 0 && isUnaryOp(getTokenString(tokens.get(opIndex)))) {
+            return (
+                "<expression>\n" +
+                compileTerm(tokens) +
+                "</expression>\n"
+            );
+        }
+
+        expressionString = "<expression>\n";
+
+        if(opIndex > 0) {
+            expressionString += compileTerm(tokens.subList(0, opIndex));
+        }
 
         while(opIndex < tokens.size() && isOp(getTokenString(tokens.get(opIndex)))) {
-            nextOpIndex = getOpIndex(tokens.subList(opIndex + 1, tokens.size())) + opIndex + 1;
+            nextOpIndex = getTopLevelOpIndex(tokens.subList(opIndex + 1, tokens.size())) + opIndex + 1;
             expressionString += (
                 tokens.get(opIndex) + "\n" +
                 compileTerm(tokens.subList(opIndex + 1, nextOpIndex))
@@ -242,6 +281,9 @@ public class CompilationEngine {
     }
 
     public String compileTerm(List<String> tokens) {
+        if(tokens.size() == 0) {
+            return "<term>\n</term>\n";
+        }
         String firstTokenType = getTokenType(tokens.get(0));
         // intergerConstant | stringConstant | keywordConstant || varName
         if(tokens.size() == 1) {
@@ -249,7 +291,7 @@ public class CompilationEngine {
                 || firstTokenType.equals("stringConstant")
                 || firstTokenType.equals("keyword")
                 || firstTokenType.equals("identifier"))) {
-                return "Invalid Format - Wrong Token Type";
+                return "Invalid Format - Wrong Token Type\n" + tokens + "\n";
             }
             return (
                 "<term>\n" +
@@ -298,8 +340,8 @@ public class CompilationEngine {
             return (
                 "<term>\n" +
                 tokens.get(0) + "\n" +
-                compileTerm(tokens.subList(1, tokens.size())) + "\n" + // only clip off the first token
-                "<term>\n"
+                compileTerm(tokens.subList(1, tokens.size())) + // only clip off the first token
+                "</term>\n"
             );
         }
         
@@ -345,7 +387,7 @@ public class CompilationEngine {
 
     public String compileIf(List<String> tokens) {
         String ifString = "";
-        int parenIndex = getTokenIndex(tokens, ")");
+        int parenIndex = getTopLevelParenIndex(tokens);
         int ifBracketIndex = getTokenIndex(tokens, "}");
         int elseIndex = getTokenIndex(tokens, "else");
         
@@ -356,11 +398,11 @@ public class CompilationEngine {
         } else if(!getTokenString(tokens.get(parenIndex)).equals(")")) {
             return "Syntax Error - if statement missing symbol ')'\n";
         } else if(!getTokenString(tokens.get(parenIndex + 1)).equals("{")) {
-            return "Syntax Error - if statement missing symbol '{'\n";
+            return "Syntax Error - if statement missing symbol '{'\n" + tokens + "\n";
         } else if(!getTokenString(tokens.get(ifBracketIndex)).equals("}")) {
-            return "Syntax Error - if statement missing symbol '{'\n";
+            return "Syntax Error - if statement missing symbol '}'\n" + tokens + "\n";
         }
-
+        
         ifString += (
             "<ifStatement>\n" +
             tokens.get(0) + "\n" +
@@ -388,7 +430,7 @@ public class CompilationEngine {
 
     public String compileWhile(List<String> tokens) {
         String whileString = "";
-        int parenIndex = getTokenIndex(tokens, ")");
+        int parenIndex = getTopLevelParenIndex(tokens);
 
         if(!getTokenString(tokens.get(0)).equals("while")) {
             return "Syntax Error - Must have while declaration\n";
