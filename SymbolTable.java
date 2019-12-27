@@ -59,9 +59,10 @@ public class SymbolTable {
         SymbolTableBlock block = getBlockByName(name);
         return (
             " name: " + name + "\n" +
-            " type: " + block.getType(name) + "\n" +
-            " kind: " + block.getKind() + "\n" +
-            " index: " + block.getIndex(name) + "\n"
+            " category: " + block.getKind() + "\n" +
+            " isStandard: true\n" +
+            " index: " + block.getIndex(name) + "\n" +
+            " usage: definition\n"
         );
     }
 }

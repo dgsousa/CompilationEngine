@@ -172,14 +172,14 @@ public class CompilationEngine {
             "<varDec>\n" + 
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
         );
 
         while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
             name = getTokenString(tokens.get(commaIndex + 1));
             symbolTable.define(name, type, kind);
             varDecString += tokens.get(commaIndex) + "\n";
-            varDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n";
+            varDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n";
             commaIndex += 2;
         }
         
@@ -561,7 +561,13 @@ public class CompilationEngine {
             "<subroutineDec>\n" +
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            tokens.get(2) + "\n" +
+            "<identifier>\n" +
+            " name: " + getTokenString(tokens.get(2)) + "\n" +
+            " category: subroutine\n" +
+            " isStandard: true\n" +
+            " index: 0\n" +
+            " usage: definition\n" +
+            "</identifier>\n" +
             tokens.get(3) + "\n" +
             compileParameterList(new ArrayList<String>(tokens.subList(4, subroutineBodyIndex - 1))) + 
             tokens.get(subroutineBodyIndex - 1) + "\n" +
@@ -577,8 +583,6 @@ public class CompilationEngine {
             }
             statementsIndex = varDecIndex;
         }
-        
-        // resetKinds();
 
         compiledSubroutine += compileStatements(tokens.subList(statementsIndex, tokens.size() - 1)); // clip off terminal '}'
 
@@ -607,7 +611,7 @@ public class CompilationEngine {
 
             parameterListString += (
                 tokens.get(0) + "\n" +
-                "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
+                "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
             );
 
             while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
@@ -618,7 +622,7 @@ public class CompilationEngine {
                 parameterListString += (
                     tokens.get(commaIndex) + "\n" +
                     tokens.get(commaIndex + 1) + "\n" +
-                    "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
+                    "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
                 );
                 commaIndex = nextCommaIndex;
             }
@@ -654,7 +658,7 @@ public class CompilationEngine {
             "<classVarDec>\n" +
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
         );
 
         while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
@@ -662,7 +666,7 @@ public class CompilationEngine {
             name = getTokenString(tokens.get(commaIndex + 1));
             symbolTable.define(name, type, kind);
             classVarDecString += tokens.get(commaIndex) + "\n";
-            classVarDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n";
+            classVarDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n";
             commaIndex = nextCommaIndex;
         }
 
@@ -697,7 +701,13 @@ public class CompilationEngine {
             "<class>\n" +
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            tokens.get(2) + "\n"
+            "<identifier>\n" +
+            " name: " + getTokenString(tokens.get(1)) + "\n" +
+            " category: class\n" +
+            " isStandard: true\n" +
+            " index: 0\n" +
+            " usage: definition\n" +
+            "</identifier>\n"
         );
         
         while(lastClassVarDecIndex < lastSubroutineIndex && isClassVarDec(getTokenString(tokens.get(lastClassVarDecIndex)))) {
