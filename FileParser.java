@@ -43,7 +43,7 @@ public class FileParser {
 
     public void translateFile(BufferedReader br, BufferedWriter bw, String fileName) throws Exception {
         Formatter formatter = new Formatter();
-        Tokenizer tokenizer = new JackTokenizer();
+        JackTokenizer tokenizer = new JackTokenizer();
         CompilationEngine compilationEngine = new CompilationEngine();
         String st;
         ArrayList<String> contents = new ArrayList<String>();

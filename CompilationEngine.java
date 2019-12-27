@@ -1,8 +1,12 @@
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 public class CompilationEngine {
+    SymbolTable symbolTable = new SymbolTable();
+    
+
     public String getTokenType(String token) {
         String[] tokenArr = token.split(">");
         return tokenArr[0].substring(1, tokenArr[0].length());
@@ -15,7 +19,6 @@ public class CompilationEngine {
 
     public int getTokenIndex(List<String> tokens, String token) {
         int counter = 0;
-        
         while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals(token)) {
             counter++;
         }
@@ -114,7 +117,6 @@ public class CompilationEngine {
         while(!getTokenString(tokens.get(counter)).equals("{") && counter < tokens.size()) {
             counter++;
         }
-
         return counter;
     }
 
@@ -123,7 +125,6 @@ public class CompilationEngine {
         while(counter < tokens.size() && !getTokenString(tokens.get(counter)).equals("var")) {
             counter++;
         }
-
         return counter;
     }
 
@@ -141,13 +142,15 @@ public class CompilationEngine {
             }
             counter++;
         }
-
         return counter;
     }
 
     public String compileVarDec(List<String> tokens) {
         String varDecString = "";
-        int commaIndex = 3;
+        String name;
+        String kind;
+        String type;
+        int commaIndex;
         if(!getTokenString(tokens.get(0)).equals("var")) {
             return "Syntax Error - Missing 'var' declaration\n";
         } else if(!(getTokenType(tokens.get(1)).equals("keyword") || getTokenType(tokens.get(1)).equals("identifier"))) {
@@ -158,20 +161,25 @@ public class CompilationEngine {
             return "Syntax Error - Missing terminal token ';'\n";
         }
 
+        commaIndex = getTokenIndex(tokens, ",");
+
+        kind = getTokenString(tokens.get(0));
+        type = getTokenString(tokens.get(1));
+        name = getTokenString(tokens.get(2));
+        symbolTable.define(name, type, kind);
+
         varDecString = (
             "<varDec>\n" + 
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            tokens.get(2) + "\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
         );
 
         while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
+            name = getTokenString(tokens.get(commaIndex + 1));
+            symbolTable.define(name, type, kind);
             varDecString += tokens.get(commaIndex) + "\n";
-            if(!getTokenType(tokens.get(commaIndex + 1)).equals("identifier")) {
-                return "Syntax Error - Missing var Name\n";
-            } else {
-                varDecString += tokens.get(commaIndex + 1) + "\n";
-            }
+            varDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n";
             commaIndex += 2;
         }
         
@@ -199,7 +207,6 @@ public class CompilationEngine {
                 tokens.get(tokens.size() - 1) + "\n"
             );
         }
-
         return "Invalid Format - cannot parse subroutineCall\n";
     }
 
@@ -548,6 +555,8 @@ public class CompilationEngine {
             return "Syntax Error - token should be identifier";
         }
 
+        symbolTable.startSubroutine();
+
         compiledSubroutine = (
             "<subroutineDec>\n" +
             tokens.get(0) + "\n" +
@@ -569,6 +578,7 @@ public class CompilationEngine {
             statementsIndex = varDecIndex;
         }
         
+        // resetKinds();
 
         compiledSubroutine += compileStatements(tokens.subList(statementsIndex, tokens.size() - 1)); // clip off terminal '}'
 
@@ -580,6 +590,9 @@ public class CompilationEngine {
 
     public String compileParameterList(List<String> tokens) {
         String parameterListString;
+        String kind;
+        String type;
+        String name;
         int commaIndex;
         int nextCommaIndex;
         
@@ -587,18 +600,25 @@ public class CompilationEngine {
 
         if(tokens.size() > 0) {
             commaIndex = getTokenIndex(tokens, ",");
+            kind = "argument";
+            type = getTokenString(tokens.get(0));
+            name = getTokenString(tokens.get(1));
+            symbolTable.define(name, type, kind);
 
             parameterListString += (
                 tokens.get(0) + "\n" +
-                tokens.get(1) + "\n"
+                "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
             );
 
             while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
                 nextCommaIndex = getTokenIndex(tokens.subList(commaIndex + 1, tokens.size()), ",") + commaIndex + 1;
+                type = getTokenString(tokens.get(commaIndex + 1));
+                name = getTokenString(tokens.get(commaIndex + 2));
+                symbolTable.define(name, type, kind);
                 parameterListString += (
                     tokens.get(commaIndex) + "\n" +
                     tokens.get(commaIndex + 1) + "\n" +
-                    tokens.get(commaIndex + 2) + "\n"
+                    "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
                 );
                 commaIndex = nextCommaIndex;
             }
@@ -612,6 +632,9 @@ public class CompilationEngine {
         int commaIndex;
         int nextCommaIndex;
         String classVarDecString;
+        String kind;
+        String type;
+        String name;
         if(!isClassVarDec(getTokenString(tokens.get(0)))) {
             return "INVALID FORMAT - missing class variable declaration\n";
         } else if(!(getTokenType(tokens.get(1)).equals("keyword") || getTokenType(tokens.get(1)).equals("identifier"))) {
@@ -622,17 +645,24 @@ public class CompilationEngine {
 
         commaIndex = getTokenIndex(tokens, ",");
 
+        kind = getTokenString(tokens.get(0));
+        type = getTokenString(tokens.get(1));
+        name = getTokenString(tokens.get(2));
+        symbolTable.define(name, type, kind);
+
         classVarDecString = (
             "<classVarDec>\n" +
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            tokens.get(2) + "\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n"
         );
 
         while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
             nextCommaIndex = getTokenIndex(tokens.subList(commaIndex + 1, tokens.size()), ",") + commaIndex + 1;
+            name = getTokenString(tokens.get(commaIndex + 1));
+            symbolTable.define(name, type, kind);
             classVarDecString += tokens.get(commaIndex) + "\n";
-            classVarDecString += tokens.get(commaIndex + 1) + "\n";
+            classVarDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + " usage: definition\n</identifier>\n";
             commaIndex = nextCommaIndex;
         }
 
@@ -640,6 +670,7 @@ public class CompilationEngine {
             tokens.get(tokens.size() - 1) + "\n" +
             "</classVarDec>\n"
         );
+
         return classVarDecString;
     }
 
