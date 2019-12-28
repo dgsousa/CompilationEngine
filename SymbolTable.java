@@ -55,14 +55,14 @@ public class SymbolTable {
             .getIndex(name);
     }
 
-    public String getSymbolString(String name) {
+    public String getSymbolString(String name, String usage) {
         SymbolTableBlock block = getBlockByName(name);
         return (
             " name: " + name + "\n" +
             " category: " + block.getKind() + "\n" +
             " isStandard: true\n" +
             " index: " + block.getIndex(name) + "\n" +
-            " usage: definition\n"
+            " usage: " + usage + "\n"
         );
     }
 }

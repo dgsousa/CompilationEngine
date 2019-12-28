@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 public class CompilationEngine {
     SymbolTable symbolTable = new SymbolTable();
+    String className;
     
 
     public String getTokenType(String token) {
@@ -172,14 +173,14 @@ public class CompilationEngine {
             "<varDec>\n" + 
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name, "definition") + "</identifier>\n"
         );
 
         while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
             name = getTokenString(tokens.get(commaIndex + 1));
             symbolTable.define(name, type, kind);
             varDecString += tokens.get(commaIndex) + "\n";
-            varDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n";
+            varDecString += "<identifier>\n" + symbolTable.getSymbolString(name, "definition") + "</identifier>\n";
             commaIndex += 2;
         }
         
@@ -191,7 +192,13 @@ public class CompilationEngine {
     public String compileSubroutineCall(List<String> tokens) {
         if(getTokenType(tokens.get(0)).equals("identifier") && getTokenString(tokens.get(1)).equals(".") ) {
             return (
-                tokens.get(0) + "\n" +
+                "<identifier>\n" +
+                " name: " + getTokenString(tokens.get(0)) + "\n" +
+                " category: subroutine\n" +
+                " isStandard: false\n" +
+                " index: 0\n" +
+                " usage: call\n" +
+                "</identifier>\n" +
                 tokens.get(1) + "\n" +
                 compileSubroutineCall(tokens.subList(2, tokens.size()))
             );
@@ -201,7 +208,13 @@ public class CompilationEngine {
             && getTokenString(tokens.get(1)).equals("(")
             && getTokenString(tokens.get(tokens.size() - 1)).equals(")")) {
             return (
-                tokens.get(0) + "\n" +
+                "<identifier>\n" +
+                " name: " + getTokenString(tokens.get(0)) + "\n" +
+                " category: subroutine\n" +
+                " isStandard: false\n" +
+                " index: 0\n" +
+                " usage: call\n" +
+                "</identifier>\n" +
                 tokens.get(1) + "\n" +
                 compileExpressionList(tokens.subList(2, tokens.size() - 1)) +
                 tokens.get(tokens.size() - 1) + "\n"
@@ -288,6 +301,7 @@ public class CompilationEngine {
     }
 
     public String compileTerm(List<String> tokens) {
+        String name;
         if(tokens.size() == 0) {
             return "<term>\n</term>\n";
         }
@@ -299,6 +313,13 @@ public class CompilationEngine {
                 || firstTokenType.equals("keyword")
                 || firstTokenType.equals("identifier"))) {
                 return "Invalid Format - Wrong Token Type\n" + tokens + "\n";
+            } else if(firstTokenType.equals("identifier")) {
+                name = getTokenString(tokens.get(0));
+                return (
+                    "<term>\n" +
+                    "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>\n" +
+                    "</term>\n"
+                );
             }
             return (
                 "<term>\n" +
@@ -311,9 +332,10 @@ public class CompilationEngine {
         if(getTokenType(tokens.get(0)).equals("identifier")
             && getTokenString(tokens.get(1)).equals("[")
             && getTokenString(tokens.get(tokens.size() - 1)).equals("]")) {
+            name = getTokenString(tokens.get(0));
             return (
                 "<term>\n" +
-                tokens.get(0) + "\n" +
+                "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>\n" +
                 tokens.get(1) + "\n" +
                 compileExpression(tokens.subList(2, tokens.size() - 1)) +
                 tokens.get(tokens.size() - 1) + "\n" +
@@ -357,6 +379,7 @@ public class CompilationEngine {
 
     public String compileLet(List<String> tokens) {
         String letString = "";
+        String name;
         int equalsIndex = getTokenIndex(tokens, "=");
         if(!getTokenString(tokens.get(0)).equals("let")) {
             return "Syntax Error - Must have let declaration\n";
@@ -366,10 +389,12 @@ public class CompilationEngine {
             return "Syntax Error - Let statement missing terminal declaration ';'\n";
         }
 
+        name = getTokenString(tokens.get(1));
+
         letString += (
             "<letStatement>\n" +
             tokens.get(0) + "\n" +
-            tokens.get(1) + "\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>" // tokens.get(1) + "\n"
         );
 
         if(!(getTokenString(tokens.get(2)).equals("[") || getTokenString(tokens.get(2)).equals("="))) {
@@ -556,6 +581,7 @@ public class CompilationEngine {
         }
 
         symbolTable.startSubroutine();
+        symbolTable.define("this", this.className, "argument");
 
         compiledSubroutine = (
             "<subroutineDec>\n" +
@@ -564,7 +590,7 @@ public class CompilationEngine {
             "<identifier>\n" +
             " name: " + getTokenString(tokens.get(2)) + "\n" +
             " category: subroutine\n" +
-            " isStandard: true\n" +
+            " isStandard: false\n" +
             " index: 0\n" +
             " usage: definition\n" +
             "</identifier>\n" +
@@ -611,7 +637,7 @@ public class CompilationEngine {
 
             parameterListString += (
                 tokens.get(0) + "\n" +
-                "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
+                "<identifier>\n" + symbolTable.getSymbolString(name, "definition") + "</identifier>\n"
             );
 
             while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
@@ -622,7 +648,7 @@ public class CompilationEngine {
                 parameterListString += (
                     tokens.get(commaIndex) + "\n" +
                     tokens.get(commaIndex + 1) + "\n" +
-                    "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
+                    "<identifier>\n" + symbolTable.getSymbolString(name, "definition") + "</identifier>\n"
                 );
                 commaIndex = nextCommaIndex;
             }
@@ -658,7 +684,7 @@ public class CompilationEngine {
             "<classVarDec>\n" +
             tokens.get(0) + "\n" +
             tokens.get(1) + "\n" +
-            "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n"
+            "<identifier>\n" + symbolTable.getSymbolString(name, "definition") + "</identifier>\n"
         );
 
         while(commaIndex < tokens.size() && getTokenString(tokens.get(commaIndex)).equals(",")) {
@@ -666,7 +692,7 @@ public class CompilationEngine {
             name = getTokenString(tokens.get(commaIndex + 1));
             symbolTable.define(name, type, kind);
             classVarDecString += tokens.get(commaIndex) + "\n";
-            classVarDecString += "<identifier>\n" + symbolTable.getSymbolString(name) + "</identifier>\n";
+            classVarDecString += "<identifier>\n" + symbolTable.getSymbolString(name, "definition") + "</identifier>\n";
             commaIndex = nextCommaIndex;
         }
 
@@ -694,20 +720,21 @@ public class CompilationEngine {
             return "Syntax Error - Missing token '}' on class assignment";
         }
 
+        this.className = getTokenString(tokens.get(1));
         lastClassVarDecIndex = getClassVarDecIndex(tokens.subList(3, tokens.size() - 1)) + 3;
         lastSubroutineIndex = getSubroutineIndex(tokens.subList(3, tokens.size() - 1)) + 3;
 
         compiledClass = (
             "<class>\n" +
             tokens.get(0) + "\n" +
-            tokens.get(1) + "\n" +
             "<identifier>\n" +
             " name: " + getTokenString(tokens.get(1)) + "\n" +
             " category: class\n" +
-            " isStandard: true\n" +
+            " isStandard: false\n" +
             " index: 0\n" +
             " usage: definition\n" +
-            "</identifier>\n"
+            "</identifier>\n" +
+            tokens.get(2) + "\n"
         );
         
         while(lastClassVarDecIndex < lastSubroutineIndex && isClassVarDec(getTokenString(tokens.get(lastClassVarDecIndex)))) {
