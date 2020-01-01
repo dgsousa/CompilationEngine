@@ -41,11 +41,10 @@ public class Formatter {
             counter++;
         }
         if(
-            lineString.length() >= 2
-            && (lineString.substring(0, 1).equals("*")
-            || lineString.substring(0, 2).equals("/*")
-            || lineString.substring(0, 2).equals("//")
-            || lineString.substring(0, 2).equals("*/")) 
+            lineString.length() >= 2 && (lineString.substring(0, 2).equals("/*") || lineString.substring(0, 2).equals("//") || lineString.substring(0, 2).equals("*/"))
+            || (lineString.length() >= 1 && lineString.substring(0, 1).equals("*")
+        )
+
         ) {
             return true;
         }

@@ -4,9 +4,68 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 public class CompilationEngine {
-    SymbolTable symbolTable = new SymbolTable();
     String className;
-    
+    int ifCount = 0;
+    int whileCount = 0;
+    SymbolTable symbolTable = new SymbolTable();
+    HashMap<String, String> opCodes = new HashMap<String, String>() {{
+        put("+", "add");
+        put("-", "sub");
+        put("*", "call Math.multiply 2");
+        put("/", "call Math.divide 2");
+        put("&amp;", "and");
+        put("|", "or");
+        put("=", "eq");
+        put("&gt;", "gt");
+        put("&lt;", "lt");
+    }};
+    HashMap<String, String> unaryOpCodes = new HashMap<String, String>() {{
+        put("~", "not");
+        put("-", "neg");
+    }};
+
+    public String getSegment(String name) {
+        String kind = symbolTable.kindOf(name);
+        int index = symbolTable.indexOf(name);
+        if(kind.equals("var")) {
+            return "local " + index;
+        } else if(kind.equals("argument")) {
+            return "argument " + index;
+        } else if(kind.equals("static")) {
+            return "static " + index;
+        } else if(kind.equals("field")) {
+            return "this " + index;
+        } else {
+            return "COMPILATION ERROR - VARIABLE NOT FOUND";
+        }
+    }
+
+    public String convertKeyword(String name) {
+        if(name.equals("true")) {
+            return "constant 1\nneg";
+        } else if(name.equals("false")) {
+            return "constant 0";
+        } else if(name.equals("null")) {
+            return "constant 0";
+        } else if(name.equals("this")) {
+            return "pointer 0";
+        } else {
+            return "COMPILATION ERROR - KEYWORD CONSTANT NOT FOUND";
+        }
+    }
+
+    public Boolean isInstance(String name) {
+        int index = this.symbolTable.indexOf(name);
+        return index != -1;
+    }
+
+    public String getOpCode(String op) {
+        return opCodes.get(op);
+    }
+
+    public String getUnaryOpCode(String op) {
+        return unaryOpCodes.get(op);
+    }
 
     public String getTokenType(String token) {
         String[] tokenArr = token.split(">");
@@ -76,6 +135,51 @@ public class CompilationEngine {
             counter++;
         }
         return counter;
+    }
+
+    public int getTopLevelBracketIndex(List<String> tokens) {
+        int counter = 0;
+        int openBracketCount = 0;
+        while(counter < tokens.size() && !(getTokenString(tokens.get(counter)).equals("}") && openBracketCount == 1)) {
+            if(getTokenString(tokens.get(counter)).equals("{")) {
+                openBracketCount += 1;
+            }
+            if(getTokenString(tokens.get(counter)).equals("}")) {
+                openBracketCount -= 1;
+            }
+            counter++;
+        }
+        return counter;
+    }
+
+    public int getTopLevelElseIndex(List<String> tokens) {
+        int counter = 0;
+        int openBracketCount = 0;
+        while(counter < tokens.size() && !(getTokenString(tokens.get(counter)).equals("else") && openBracketCount == 0)) {
+            if(getTokenString(tokens.get(counter)).equals("{")) {
+                openBracketCount += 1;
+            }
+            if(getTokenString(tokens.get(counter)).equals("}")) {
+                openBracketCount -= 1;
+            }
+            counter++;
+        }
+        return counter;
+    }
+
+    public int countNumArgs(List<String> tokens) {
+        int topLevelCommaIndex;
+        int numArgs = 0;
+
+        if(tokens.size() > 0) {
+            numArgs = 1;
+            topLevelCommaIndex = getTopLevelCommaIndex(tokens);
+            while(topLevelCommaIndex < tokens.size() && getTokenString(tokens.get(topLevelCommaIndex)).equals(",")) {
+                numArgs += 1;
+                topLevelCommaIndex = getTopLevelCommaIndex(tokens.subList(topLevelCommaIndex + 1, tokens.size())) + topLevelCommaIndex + 1;
+            }
+        }
+        return numArgs;
     }
 
     public Boolean isClassVarDec(String token) {
@@ -190,35 +294,66 @@ public class CompilationEngine {
     }
 
     public String compileSubroutineCall(List<String> tokens) {
-        if(getTokenType(tokens.get(0)).equals("identifier") && getTokenString(tokens.get(1)).equals(".") ) {
-            return (
-                "<identifier>\n" +
-                " name: " + getTokenString(tokens.get(0)) + "\n" +
-                " category: subroutine\n" +
-                " isStandard: false\n" +
-                " index: 0\n" +
-                " usage: call\n" +
-                "</identifier>\n" +
-                tokens.get(1) + "\n" +
-                compileSubroutineCall(tokens.subList(2, tokens.size()))
-            );
-        }
+        int numArgs;
+        String subroutineName;
+        String type;
+        String compiledExpressionList;
+        List<String> expressionSublist;
 
-        if(getTokenType(tokens.get(0)).equals("identifier")
-            && getTokenString(tokens.get(1)).equals("(")
-            && getTokenString(tokens.get(tokens.size() - 1)).equals(")")) {
+        // someSubroutine.somemethodOrFunction()
+        if(getTokenType(tokens.get(0)).equals("identifier") && getTokenString(tokens.get(1)).equals(".") ) {
+            expressionSublist = tokens.subList(4, tokens.size() - 1);
+            numArgs = countNumArgs(expressionSublist);
+            subroutineName = getTokenString(tokens.get(0)) + "." + getTokenString(tokens.get(2));
+            compiledExpressionList = compileExpressionList(expressionSublist);
+            if(isInstance(getTokenString(tokens.get(0)))) {
+                type = this.symbolTable.typeOf(getTokenString(tokens.get(0)));
+                return (
+                    "push " + getSegment(getTokenString(tokens.get(0))) + "\n" +
+                    compiledExpressionList +
+                    "call " + type + "." + getTokenString(tokens.get(2)) + " " + (numArgs + 1) + "\n"
+                );
+            }
             return (
-                "<identifier>\n" +
-                " name: " + getTokenString(tokens.get(0)) + "\n" +
-                " category: subroutine\n" +
-                " isStandard: false\n" +
-                " index: 0\n" +
-                " usage: call\n" +
-                "</identifier>\n" +
-                tokens.get(1) + "\n" +
-                compileExpressionList(tokens.subList(2, tokens.size() - 1)) +
-                tokens.get(tokens.size() - 1) + "\n"
+                compiledExpressionList +
+                "call " + subroutineName + " " + numArgs + "\n"
             );
+            // return (
+            //     "<identifier>\n" +
+            //     " name: " + getTokenString(tokens.get(0)) + "\n" +
+            //     " category: subroutine\n" +
+            //     " isStandard: false\n" +
+            //     " index: 0\n" +
+            //     " usage: call\n" +
+            //     "</identifier>\n" +
+            //     tokens.get(1) + "\n" +
+            //     compileSubroutineCall(tokens.subList(2, tokens.size()))
+            // );
+
+        // someSubroutine()
+        } else if(getTokenType(tokens.get(0)).equals("identifier") && getTokenString(tokens.get(1)).equals("(") && getTokenString(tokens.get(tokens.size() - 1)).equals(")")) {
+            expressionSublist = tokens.subList(2, tokens.size() - 1);
+            numArgs = countNumArgs(expressionSublist);
+            subroutineName = this.className + "." + getTokenString(tokens.get(0)); // if no className, use current className
+            compiledExpressionList = compileExpressionList(expressionSublist);
+            return (
+                "push pointer 0\n" +
+                compiledExpressionList +
+                "call " + subroutineName + " " + (numArgs + 1) + "\n"
+            );
+
+            // return (
+            //     "<identifier>\n" +
+            //     " name: " + getTokenString(tokens.get(0)) + "\n" +
+            //     " category: subroutine\n" +
+            //     " isStandard: false\n" +
+            //     " index: 0\n" +
+            //     " usage: call\n" +
+            //     "</identifier>\n" +
+            //     tokens.get(1) + "\n" +
+            //     compileExpressionList(tokens.subList(2, tokens.size() - 1)) +
+            //     tokens.get(tokens.size() - 1) + "\n"
+            // );
         }
         return "Invalid Format - cannot parse subroutineCall\n";
     }
@@ -238,11 +373,11 @@ public class CompilationEngine {
     }
 
     public String compileExpressionList(List<String> tokens) {
-        String expressionListString;
+        String expressionListString = "";
         int topLevelCommaIndex;
         int nextTopLevelCommaIndex;
         
-        expressionListString = "<expressionList>\n";
+        // expressionListString = "<expressionList>\n";
 
         if(tokens.size() > 0) {
             topLevelCommaIndex = getTopLevelCommaIndex(tokens);
@@ -254,14 +389,15 @@ public class CompilationEngine {
             while(topLevelCommaIndex < tokens.size() && getTokenString(tokens.get(topLevelCommaIndex)).equals(",")) {
                 nextTopLevelCommaIndex = getTopLevelCommaIndex(tokens.subList(topLevelCommaIndex + 1, tokens.size())) + topLevelCommaIndex + 1;
                 expressionListString += (
-                    tokens.get(topLevelCommaIndex) + "\n" +
+                    // tokens.get(topLevelCommaIndex) + "\n" +
                     compileExpression(tokens.subList(topLevelCommaIndex + 1, nextTopLevelCommaIndex))
                 );
                 topLevelCommaIndex = nextTopLevelCommaIndex;
             }
         }
 
-        expressionListString += "</expressionList>\n";
+        // expressionListString += "</expressionList>\n";
+
         return expressionListString;
     }
 
@@ -271,14 +407,15 @@ public class CompilationEngine {
         int nextOpIndex;
 
         if(opIndex == 0 && isUnaryOp(getTokenString(tokens.get(opIndex)))) {
-            return (
-                "<expression>\n" +
-                compileTerm(tokens) +
-                "</expression>\n"
-            );
+            return compileTerm(tokens);
+            // return (
+            //     "<expression>\n" +
+            //     compileTerm(tokens) +
+            //     "</expression>\n"
+            // );
         }
 
-        expressionString = "<expression>\n";
+        // expressionString = "<expression>\n";
 
         if(opIndex > 0) {
             expressionString += compileTerm(tokens.subList(0, opIndex));
@@ -287,15 +424,19 @@ public class CompilationEngine {
         while(opIndex < tokens.size() && isOp(getTokenString(tokens.get(opIndex)))) {
             nextOpIndex = getTopLevelOpIndex(tokens.subList(opIndex + 1, tokens.size())) + opIndex + 1;
             expressionString += (
-                tokens.get(opIndex) + "\n" +
-                compileTerm(tokens.subList(opIndex + 1, nextOpIndex))
+                compileTerm(tokens.subList(opIndex + 1, nextOpIndex)) +
+                getOpCode(getTokenString(tokens.get(opIndex))) + "\n"
             );
+            // expressionString += (
+            //     tokens.get(opIndex) + "\n" +
+            //     compileTerm(tokens.subList(opIndex + 1, nextOpIndex))
+            // );
             opIndex = nextOpIndex;
         }
 
-        expressionString += (
-            "</expression>\n"
-        );
+        // expressionString += (
+        //     "</expression>\n"
+        // );
 
         return expressionString;
     }
@@ -303,7 +444,7 @@ public class CompilationEngine {
     public String compileTerm(List<String> tokens) {
         String name;
         if(tokens.size() == 0) {
-            return "<term>\n</term>\n";
+            return ""; // "<term>\n</term>\n";
         }
         String firstTokenType = getTokenType(tokens.get(0));
         // intergerConstant | stringConstant | keywordConstant || varName
@@ -314,18 +455,24 @@ public class CompilationEngine {
                 || firstTokenType.equals("identifier"))) {
                 return "Invalid Format - Wrong Token Type\n" + tokens + "\n";
             } else if(firstTokenType.equals("identifier")) {
-                name = getTokenString(tokens.get(0));
-                return (
-                    "<term>\n" +
-                    "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>\n" +
-                    "</term>\n"
-                );
+                return "push " + getSegment(getTokenString(tokens.get(0))) + "\n";
+                // return (
+                //     "<term>\n" +
+                //     "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>\n" +
+                //     "</term>\n"
+                // );
+            } else if(firstTokenType.equals("integerConstant")) {
+                return "push constant " + getTokenString(tokens.get(0)) + "\n";
+            } else if(firstTokenType.equals("stringConstant")) {
+                return "STRING CONSTANT TERMS NOT IMPLEMENTED YET";
+            } else if(firstTokenType.equals("keyword")) {
+                return "push " + convertKeyword(getTokenString(tokens.get(0))) + "\n";
             }
-            return (
-                "<term>\n" +
-                tokens.get(0) + "\n" +
-                "</term>\n"
-            );  
+            // return (
+            //     "<term>\n" +
+            //     tokens.get(0) + "\n" +
+            //     "</term>\n"
+            // );  
         }
 
         // varName [ expression ]
@@ -346,32 +493,38 @@ public class CompilationEngine {
         // subRoutineCall
         if(getTokenType(tokens.get(0)).equals("identifier")
             && (getTokenString(tokens.get(1)).equals("(") || getTokenString(tokens.get(1)).equals("."))) {
-            return (
-                "<term>\n" +
-                compileSubroutineCall(tokens) +
-                "</term>\n" 
-            );
+            return compileSubroutineCall(tokens);
+            // return (
+            //     "<term>\n" +
+            //     compileSubroutineCall(tokens) +
+            //     "</term>\n" 
+            // );
         }
 
         // ( expression )
         if(getTokenString(tokens.get(0)).equals("(") && getTokenString(tokens.get(tokens.size() - 1)).equals(")")) {
-            return (
-                "<term>\n" +
-                tokens.get(0) + "\n" +
-                compileExpression(tokens.subList(1, tokens.size() - 1)) +
-                tokens.get(tokens.size() - 1) + "\n" +
-                "</term>\n"
-            );
+            return compileExpression(tokens.subList(1, tokens.size() - 1));
+            // return (
+            //     "<term>\n" +
+            //     tokens.get(0) + "\n" +
+            //     compileExpression(tokens.subList(1, tokens.size() - 1)) +
+            //     tokens.get(tokens.size() - 1) + "\n" +
+            //     "</term>\n"
+            // );
         }
 
         // unaryOp term
-        if(isOp(getTokenString(tokens.get(0)))) {
+        if(isUnaryOp(getTokenString(tokens.get(0)))) {
             return (
-                "<term>\n" +
-                tokens.get(0) + "\n" +
-                compileTerm(tokens.subList(1, tokens.size())) + // only clip off the first token
-                "</term>\n"
+                compileTerm(tokens.subList(1, tokens.size())) +
+                getUnaryOpCode(getTokenString(tokens.get(0))) + "\n"
             );
+            // return (
+            //     "<term>\n" +
+            //     tokens.get(0) + "\n" +
+            //     compileTerm(tokens.subList(1, tokens.size())) + // only clip off the first token
+            //     "</term>\n"
+            // );
         }
         
         return "Invalid Format - Tokens do not correspond to valid term\n" + tokens + "\n";
@@ -379,7 +532,7 @@ public class CompilationEngine {
 
     public String compileLet(List<String> tokens) {
         String letString = "";
-        String name;
+        // String name;
         int equalsIndex = getTokenIndex(tokens, "=");
         if(!getTokenString(tokens.get(0)).equals("let")) {
             return "Syntax Error - Must have let declaration\n";
@@ -389,40 +542,46 @@ public class CompilationEngine {
             return "Syntax Error - Let statement missing terminal declaration ';'\n";
         }
 
-        name = getTokenString(tokens.get(1));
+        // name = getTokenString(tokens.get(1));
 
-        letString += (
-            "<letStatement>\n" +
-            tokens.get(0) + "\n" +
-            "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>" // tokens.get(1) + "\n"
-        );
+        // letString += (
+        //     "<letStatement>\n" +
+        //     tokens.get(0) + "\n" +
+        //     "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>" // tokens.get(1) + "\n"
+        // );
 
         if(!(getTokenString(tokens.get(2)).equals("[") || getTokenString(tokens.get(2)).equals("="))) {
             return "Syntax Error - Missing either [ or = ";
         }
 
-        if(equalsIndex != 2) {
-            letString += (
-                tokens.get(2) + "\n" +
-                compileExpression(tokens.subList(3, equalsIndex - 1)) +
-                tokens.get(equalsIndex - 1) + "\n"
-            );
-        }
+        // let varName [ expression ]
+        // if(equalsIndex != 2) {
+        //     letString += (
+        //         tokens.get(2) + "\n" +
+        //         compileExpression(tokens.subList(3, equalsIndex - 1)) +
+        //         tokens.get(equalsIndex - 1) + "\n"
+        //     );
+        // }
 
-        letString += tokens.get(equalsIndex) + "\n";
-        letString += compileExpression(tokens.subList(equalsIndex + 1, tokens.size() - 1));
-        letString += tokens.get(tokens.size() - 1) + "\n";
-        letString += "</letStatement>\n";
+        // letString += tokens.get(equalsIndex) + "\n";
+        // letString += compileExpression(tokens.subList(equalsIndex + 1, tokens.size() - 1));
+        // letString += tokens.get(tokens.size() - 1) + "\n";
+        // letString += "</letStatement>\n";
+
+        letString += (
+            compileExpression(tokens.subList(equalsIndex + 1, tokens.size() - 1)) +
+            "pop " + getSegment(getTokenString(tokens.get(1))) + "\n"
+        );
 
         return letString;
     }
 
     public String compileIf(List<String> tokens) {
         String ifString = "";
+        int localIfCount = this.ifCount;
         int parenIndex = getTopLevelParenIndex(tokens);
-        int ifBracketIndex = getTokenIndex(tokens, "}");
-        int elseIndex = getTokenIndex(tokens, "else");
-        
+        int ifBracketIndex = getTopLevelBracketIndex(tokens);
+        int elseIndex = getTopLevelElseIndex(tokens);
         if(!getTokenString(tokens.get(0)).equals("if")) {
             return "Syntax Error - Must have if declaration\n";
         } else if(!getTokenString(tokens.get(1)).equals("(")) {
@@ -434,34 +593,49 @@ public class CompilationEngine {
         } else if(!getTokenString(tokens.get(ifBracketIndex)).equals("}")) {
             return "Syntax Error - if statement missing symbol '}'\n" + tokens + "\n";
         }
-        
+
+        this.ifCount += 1;
+
         ifString += (
-            "<ifStatement>\n" +
-            tokens.get(0) + "\n" +
-            tokens.get(1) + "\n" +
             compileExpression(tokens.subList(2, parenIndex)) +
-            tokens.get(parenIndex) + "\n" +
-            tokens.get(parenIndex + 1) + "\n" +
+            "not\n" +
+            "if-goto IF_TRUE" + localIfCount + "\n" +
             compileStatements(tokens.subList(parenIndex + 2, ifBracketIndex)) +
-            tokens.get(ifBracketIndex) + "\n"
+            "goto IF_FALSE" + localIfCount + "\n" +
+            "label IF_TRUE" + localIfCount + "\n"
         );
+        
+        // ifString += (
+        //     "<ifStatement>\n" +
+        //     tokens.get(0) + "\n" +
+        //     tokens.get(1) + "\n" +
+        //     compileExpression(tokens.subList(2, parenIndex)) +
+        //     tokens.get(parenIndex) + "\n" +
+        //     tokens.get(parenIndex + 1) + "\n" +
+        //     compileStatements(tokens.subList(parenIndex + 2, ifBracketIndex)) +
+        //     tokens.get(ifBracketIndex) + "\n"
+        // );
 
         if(elseIndex < tokens.size() && getTokenString(tokens.get(elseIndex)).equals("else")) {
-            ifString += (
-                tokens.get(elseIndex) + "\n" +
-                tokens.get(elseIndex + 1) + "\n" +
-                compileStatements(tokens.subList(elseIndex + 2, tokens.size() - 1)) +
-                tokens.get(tokens.size() - 1) + "\n"
-            );
+            ifString += compileStatements(tokens.subList(elseIndex + 2, tokens.size() - 1));
+
+            // ifString += (
+            //     tokens.get(elseIndex) + "\n" +
+            //     tokens.get(elseIndex + 1) + "\n" +
+            //     compileStatements(tokens.subList(elseIndex + 2, tokens.size() - 1)) +
+            //     tokens.get(tokens.size() - 1) + "\n"
+            // );
         }
+        
+        ifString += "label IF_FALSE" + localIfCount + "\n";
 
-        ifString += "</ifStatement>\n";
-
+        // ifString += "</ifStatement>\n";
         return ifString;
     }
 
     public String compileWhile(List<String> tokens) {
         String whileString = "";
+        int localWhileCount = this.whileCount;
         int parenIndex = getTopLevelParenIndex(tokens);
 
         if(!getTokenString(tokens.get(0)).equals("while")) {
@@ -476,22 +650,36 @@ public class CompilationEngine {
             return "Syntax Error - while statement missing symbol '}'\n";
         }
 
+        this.whileCount += 1;
+
         whileString = (
-            "<whileStatement>\n" +
-            tokens.get(0) + "\n" +
-            tokens.get(1) + "\n" +
+            "label WHILE_FALSE" + localWhileCount + "\n" +
             compileExpression(tokens.subList(2, parenIndex)) +
-            tokens.get(parenIndex) + "\n" +
-            tokens.get(parenIndex + 1) + "\n" +
+            "not\n" +
+            "if-goto WHILE_TRUE" + localWhileCount + "\n" +
             compileStatements(tokens.subList(parenIndex + 2, tokens.size() - 1)) +
-            tokens.get(tokens.size() - 1) + "\n" +
-            "</whileStatement>\n"
+            "goto WHILE_FALSE" + localWhileCount + "\n" +
+            "label WHILE_TRUE" + localWhileCount + "\n"
         );
+
+        // whileString = (
+        //     "<whileStatement>\n" +
+        //     tokens.get(0) + "\n" +
+        //     tokens.get(1) + "\n" +
+        //     compileExpression(tokens.subList(2, parenIndex)) +
+        //     tokens.get(parenIndex) + "\n" +
+        //     tokens.get(parenIndex + 1) + "\n" +
+        //     compileStatements(tokens.subList(parenIndex + 2, tokens.size() - 1)) +
+        //     tokens.get(tokens.size() - 1) + "\n" +
+        //     "</whileStatement>\n"
+        // );
+
         return whileString;
     }
 
     public String compileDo(List<String> tokens) {
-        String doString = "";
+        // String doString;
+        String compiledSubroutineCall;
         int parenIndex = getTokenIndex(tokens, ")");
 
         if(!getTokenString(tokens.get(0)).equals("do")) {
@@ -500,19 +688,24 @@ public class CompilationEngine {
             return "Syntax Error - while statement missing symbol ';'\n";
         }
 
-        doString += (
-            "<doStatement>\n" +
-            tokens.get(0) + "\n" +
-            compileSubroutineCall(tokens.subList(1, tokens.size() - 1)) +
-            tokens.get(tokens.size() - 1) + "\n" +
-            "</doStatement>\n"
-        );
+        compiledSubroutineCall = compileSubroutineCall(tokens.subList(1, tokens.size() - 1));
+
+        // doString = (
+        //     "<doStatement>\n" +
+        //     tokens.get(0) + "\n" +
+        //     compileSubroutineCall(tokens.subList(1, tokens.size() - 1)) +
+        //     tokens.get(tokens.size() - 1) + "\n" +
+        //     "</doStatement>\n"
+        // );
         
-        return doString;
+        return (
+            compiledSubroutineCall +
+            "pop temp 0\n"
+        );
     }
 
     public String compileReturn(List<String> tokens) {
-        String returnString = "";
+        String returnString = "push constant 0\n";
 
         if(!getTokenString(tokens.get(0)).equals("return")) {
             return "Syntax Error - Must have return declaration\n";
@@ -520,25 +713,28 @@ public class CompilationEngine {
             return "Syntax Error - return statement missing symbol ';'\n";
         }
 
-        returnString += (
-            "<returnStatement>\n" +
-            tokens.get(0) + "\n"
-        );
+        // returnString += (
+        //     "<returnStatement>\n" +
+        //     tokens.get(0) + "\n"
+        // );
 
         if(tokens.size() > 2) {
-            returnString += compileExpression(tokens.subList(1, tokens.size() - 1));
+            returnString = compileExpression(tokens.subList(1, tokens.size() - 1));
         }
 
-        returnString += (
-            tokens.get(tokens.size() - 1) + "\n" +
-            "</returnStatement>\n"
-        );
+        // returnString += (
+        //     tokens.get(tokens.size() - 1) + "\n" +
+        //     "</returnStatement>\n"
+        // );
 
-        return returnString;
+        return (
+            returnString +
+            "return\n"
+        );
     }
 
     public String compileStatements(List<String> tokens) {
-        String compiledStatements = "<statements>\n";
+        String compiledStatements = "";
         int statementsIndex = getStatementsIndex(tokens);
         String currentStatementType;
         int nextStatementsIndex;
@@ -561,7 +757,6 @@ public class CompilationEngine {
             statementsIndex = nextStatementsIndex;
         }
 
-        compiledStatements += "</statements>\n";
         return compiledStatements;
     }
 
@@ -570,7 +765,11 @@ public class CompilationEngine {
         int varDecIndex = subroutineBodyIndex + 1;
         int statementsIndex = subroutineBodyIndex + 1;
         int endVarDecIndex;
+        int numLocalVars;
+        int numFields;
+        String subroutineName;
         String compiledSubroutine;
+        String compiledStatements;
 
         if(!isSubroutineDec(getTokenString(tokens.get(0)))) {
             return "Syntax Error - should be Subroutine declaration";
@@ -581,41 +780,63 @@ public class CompilationEngine {
         }
 
         symbolTable.startSubroutine();
-        symbolTable.define("this", this.className, "argument");
-
-        compiledSubroutine = (
-            "<subroutineDec>\n" +
-            tokens.get(0) + "\n" +
-            tokens.get(1) + "\n" +
-            "<identifier>\n" +
-            " name: " + getTokenString(tokens.get(2)) + "\n" +
-            " category: subroutine\n" +
-            " isStandard: false\n" +
-            " index: 0\n" +
-            " usage: definition\n" +
-            "</identifier>\n" +
-            tokens.get(3) + "\n" +
-            compileParameterList(new ArrayList<String>(tokens.subList(4, subroutineBodyIndex - 1))) + 
-            tokens.get(subroutineBodyIndex - 1) + "\n" +
-            "<subroutineBody>\n" +
-            tokens.get(subroutineBodyIndex) + "\n"
-        );
+        if(getTokenString(tokens.get(0)).equals("method")) {
+            symbolTable.define("this", this.className, "argument");
+        }
+        
+        // compiledSubroutine = (
+            // "<subroutineDec>\n" +
+            // tokens.get(0) + "\n" +
+            // tokens.get(1) + "\n" +
+            // "<identifier>\n" +
+            // " name: " + getTokenString(tokens.get(2)) + "\n" +
+            // " category: subroutine\n" +
+            // " isStandard: false\n" +
+            // " index: 0\n" +
+            // " usage: definition\n" +
+            // "</identifier>\n" +
+            // tokens.get(3) + "\n" +
+            compileParameterList(new ArrayList<String>(tokens.subList(4, subroutineBodyIndex - 1))); // + 
+            // tokens.get(subroutineBodyIndex - 1) + "\n" +
+            // "<subroutineBody>\n" +
+            // tokens.get(subroutineBodyIndex) + "\n"
+        // );
 
         if(getTokenString(tokens.get(varDecIndex)).equals("var")) {
             while(varDecIndex < tokens.size() && getTokenString(tokens.get(varDecIndex)).equals("var")) {
                 endVarDecIndex = getTokenIndex(tokens.subList(varDecIndex, tokens.size()), ";") + varDecIndex;
-                compiledSubroutine += compileVarDec(tokens.subList(varDecIndex, endVarDecIndex + 1));
+                /* compiledSubroutine += */ compileVarDec(tokens.subList(varDecIndex, endVarDecIndex + 1));
                 varDecIndex = endVarDecIndex + 1;
             }
             statementsIndex = varDecIndex;
         }
 
-        compiledSubroutine += compileStatements(tokens.subList(statementsIndex, tokens.size() - 1)); // clip off terminal '}'
+        compiledStatements = compileStatements(tokens.subList(statementsIndex, tokens.size() - 1)); // clip off terminal '}'
 
-        compiledSubroutine += tokens.get(tokens.size() - 1) + "\n";
-        compiledSubroutine += "</subroutineBody>\n";
-        compiledSubroutine += "</subroutineDec>\n";
-        return compiledSubroutine;
+        // compiledSubroutine += tokens.get(tokens.size() - 1) + "\n";
+        // compiledSubroutine += "</subroutineBody>\n";
+        // compiledSubroutine += "</subroutineDec>\n";
+        subroutineName = getTokenString(tokens.get(2));
+        numLocalVars = symbolTable.getVarCount("var");
+        numFields = symbolTable.getVarCount("field");
+        compiledSubroutine = "function " + this.className + "." + subroutineName + " " + numLocalVars + "\n";
+        if(getTokenString(tokens.get(0)).equals("constructor")) {
+            compiledSubroutine += (
+                "push constant " + numFields + "\n" +
+                "call Memory.alloc 1\n" +
+                "pop pointer 0\n"
+            );
+        } else if(getTokenString(tokens.get(0)).equals("method")) {
+            compiledSubroutine += (
+                "push argument 0\n" +
+                "pop pointer 0\n"
+            );
+        }
+        return (
+            "\n" +
+            compiledSubroutine +
+            compiledStatements
+        );
     }
 
     public String compileParameterList(List<String> tokens) {
@@ -724,22 +945,22 @@ public class CompilationEngine {
         lastClassVarDecIndex = getClassVarDecIndex(tokens.subList(3, tokens.size() - 1)) + 3;
         lastSubroutineIndex = getSubroutineIndex(tokens.subList(3, tokens.size() - 1)) + 3;
 
-        compiledClass = (
-            "<class>\n" +
-            tokens.get(0) + "\n" +
-            "<identifier>\n" +
-            " name: " + getTokenString(tokens.get(1)) + "\n" +
-            " category: class\n" +
-            " isStandard: false\n" +
-            " index: 0\n" +
-            " usage: definition\n" +
-            "</identifier>\n" +
-            tokens.get(2) + "\n"
-        );
+        compiledClass = ""; // (
+        //     "<class>\n" +
+        //     tokens.get(0) + "\n" +
+        //     "<identifier>\n" +
+        //     " name: " + getTokenString(tokens.get(1)) + "\n" +
+        //     " category: class\n" +
+        //     " isStandard: false\n" +
+        //     " index: 0\n" +
+        //     " usage: definition\n" +
+        //     "</identifier>\n" +
+        //     tokens.get(2) + "\n"
+        // );
         
         while(lastClassVarDecIndex < lastSubroutineIndex && isClassVarDec(getTokenString(tokens.get(lastClassVarDecIndex)))) {
             nextClassVarDecIndex = getClassVarDecIndex(tokens.subList(lastClassVarDecIndex + 1, lastSubroutineIndex)) + lastClassVarDecIndex + 1;
-            compiledClass += compileClassVarDec(tokens.subList(lastClassVarDecIndex, nextClassVarDecIndex));
+            /* compiledClass  += */ compileClassVarDec(tokens.subList(lastClassVarDecIndex, nextClassVarDecIndex));
             lastClassVarDecIndex = nextClassVarDecIndex;
         }
 
@@ -749,10 +970,10 @@ public class CompilationEngine {
             lastSubroutineIndex = nextSubroutineIndex;
         }
 
-        compiledClass += (
-            tokens.get(tokens.size() - 1) + "\n" +
-            "</class>"
-        );
+        // compiledClass += (
+        //     tokens.get(tokens.size() - 1) + "\n" +
+        //     "</class>"
+        // );
 
         return compiledClass;
     }
@@ -761,9 +982,9 @@ public class CompilationEngine {
         if(!tokens.get(0).equals("<tokens>") || !tokens.get(tokens.size() - 1).equals("</tokens>")) {
             return new ArrayList<String>();
         } else {
-            String compiledTokenString = compileClass(tokens.subList(1, tokens.size() - 1));
-            List<String> compiledTokens = Arrays.asList(compiledTokenString.split("\n"));
-            return compiledTokens;
+            String compiledVMCode = compileClass(tokens.subList(1, tokens.size() - 1));
+            List<String> vmCode = Arrays.asList(compiledVMCode.split("\n"));
+            return vmCode;
         }
     }
 }
