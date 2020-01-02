@@ -110,12 +110,19 @@ public class CompilationEngine {
     public int getTopLevelOpIndex(List<String> tokens) {
         int counter = 0;
         int parenCount = 0;
-        while(counter < tokens.size() && !(isOp(getTokenString(tokens.get(counter))) && parenCount == 0)) {
+        int squareBracketCount = 0;
+        while(counter < tokens.size() && !(isOp(getTokenString(tokens.get(counter))) && parenCount == 0 && squareBracketCount == 0)) {
             if(getTokenString(tokens.get(counter)).equals("(")) {
                 parenCount += 1;
             }
             if(getTokenString(tokens.get(counter)).equals(")")) {
                 parenCount -= 1;
+            }
+            if(getTokenString(tokens.get(counter)).equals("[")) {
+                squareBracketCount += 1;
+            }
+            if(getTokenString(tokens.get(counter)).equals("]")) {
+                squareBracketCount -= 1;
             }
             counter++;
         }
@@ -443,6 +450,9 @@ public class CompilationEngine {
 
     public String compileTerm(List<String> tokens) {
         String name;
+        String stringConstant;
+        String stringPushCommands = "";
+        int length;
         if(tokens.size() == 0) {
             return ""; // "<term>\n</term>\n";
         }
@@ -464,7 +474,19 @@ public class CompilationEngine {
             } else if(firstTokenType.equals("integerConstant")) {
                 return "push constant " + getTokenString(tokens.get(0)) + "\n";
             } else if(firstTokenType.equals("stringConstant")) {
-                return "STRING CONSTANT TERMS NOT IMPLEMENTED YET";
+                stringConstant = getTokenString(tokens.get(0));
+                length = stringConstant.length();
+                for(int i = 0; i < length; i++) {
+                    stringPushCommands += (
+                        "push constant " + ((int) stringConstant.charAt(i)) + "\n" +
+                        "call String.appendChar 2\n"
+                    );
+            }
+                return (
+                    "push constant " + length + "\n" +
+                    "call String.new 1\n" +
+                    stringPushCommands
+                );
             } else if(firstTokenType.equals("keyword")) {
                 return "push " + convertKeyword(getTokenString(tokens.get(0))) + "\n";
             }
@@ -479,15 +501,22 @@ public class CompilationEngine {
         if(getTokenType(tokens.get(0)).equals("identifier")
             && getTokenString(tokens.get(1)).equals("[")
             && getTokenString(tokens.get(tokens.size() - 1)).equals("]")) {
-            name = getTokenString(tokens.get(0));
+            // name = getTokenString(tokens.get(0));
             return (
-                "<term>\n" +
-                "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>\n" +
-                tokens.get(1) + "\n" +
+                "push " + getSegment(getTokenString(tokens.get(0))) + "\n" +
                 compileExpression(tokens.subList(2, tokens.size() - 1)) +
-                tokens.get(tokens.size() - 1) + "\n" +
-                "</term>\n" 
+                "add\n" +
+                "pop pointer 1\n" +
+                "push that 0\n"
             );
+            // return (
+            //     "<term>\n" +
+            //     "<identifier>\n" + symbolTable.getSymbolString(name, "call") + "</identifier>\n" +
+            //     tokens.get(1) + "\n" +
+            //     compileExpression(tokens.subList(2, tokens.size() - 1)) +
+            //     tokens.get(tokens.size() - 1) + "\n" +
+            //     "</term>\n" 
+            // );
         }
 
         // subRoutineCall
@@ -531,8 +560,6 @@ public class CompilationEngine {
     }
 
     public String compileLet(List<String> tokens) {
-        String letString = "";
-        // String name;
         int equalsIndex = getTokenIndex(tokens, "=");
         if(!getTokenString(tokens.get(0)).equals("let")) {
             return "Syntax Error - Must have let declaration\n";
@@ -555,25 +582,31 @@ public class CompilationEngine {
         }
 
         // let varName [ expression ]
-        // if(equalsIndex != 2) {
-        //     letString += (
-        //         tokens.get(2) + "\n" +
-        //         compileExpression(tokens.subList(3, equalsIndex - 1)) +
-        //         tokens.get(equalsIndex - 1) + "\n"
-        //     );
-        // }
+        if(equalsIndex != 2) {
+            return (
+                compileExpression(tokens.subList(equalsIndex + 1, tokens.size() - 1)) +
+                "push " + getSegment(getTokenString(tokens.get(1))) + "\n" +
+                compileExpression(tokens.subList(3, equalsIndex - 1)) +
+                "add\n" +
+                "pop pointer 1\n" +
+                "pop that 0\n"
+            );
+            // letString += (
+            //     tokens.get(2) + "\n" +
+            //     compileExpression(tokens.subList(3, equalsIndex - 1)) +
+            //     tokens.get(equalsIndex - 1) + "\n"
+            // );
+        }
 
         // letString += tokens.get(equalsIndex) + "\n";
         // letString += compileExpression(tokens.subList(equalsIndex + 1, tokens.size() - 1));
         // letString += tokens.get(tokens.size() - 1) + "\n";
         // letString += "</letStatement>\n";
 
-        letString += (
+        return (
             compileExpression(tokens.subList(equalsIndex + 1, tokens.size() - 1)) +
             "pop " + getSegment(getTokenString(tokens.get(1))) + "\n"
         );
-
-        return letString;
     }
 
     public String compileIf(List<String> tokens) {
