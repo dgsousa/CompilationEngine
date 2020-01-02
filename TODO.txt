@@ -1,0 +1,8 @@
+Refactoring
+
+- Stop treating all non pre-fixed functions like methods
+- add full syntax validation
+- full type checking ?
+- add mechanism to check function/method existence on a class?
+- refactor for organization
+- perfomance optimizations (stop doing so many lookups/checks)
