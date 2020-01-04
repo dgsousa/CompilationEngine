@@ -1,6 +1,6 @@
 import java.util.HashMap;
 
-class SymbolTableRow {
+public class SymbolTableRow {
     private String name;
     private String type;
     private int index;

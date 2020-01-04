@@ -5,11 +5,11 @@ import java.util.stream.Collectors;
 import java.util.ArrayList;
 
 public class JackTokenizer {
-    List<String> tokens = new ArrayList<String>() {{
+    private List<String> tokens = new ArrayList<String>() {{
         add("<tokens>");
     }};
 
-    HashMap<String, String> symbolMap = new HashMap<String, String>() {{
+    private HashMap<String, String> symbolMap = new HashMap<String, String>() {{
         put("{", "{");
         put("}", "}");
         put("(", "(");
@@ -32,7 +32,7 @@ public class JackTokenizer {
         put("~", "~");
     }};
 
-    HashMap<String, Boolean> keywordMap = new HashMap<String, Boolean>() {{
+    private HashMap<String, Boolean> keywordMap = new HashMap<String, Boolean>() {{
         put("class", true);
         put("constructor", true);
         put("function", true);
@@ -56,19 +56,19 @@ public class JackTokenizer {
         put("return", true);
     }}; 
 
-    public Boolean isSymbol(String string) {
+    private Boolean isSymbol(String string) {
         return symbolMap.containsKey(string);
     }
 
-    public Boolean isKeyword(String string) {
+    private Boolean isKeyword(String string) {
         return keywordMap.containsKey(string);
     }
 
-    public void addStringToken(String token) {
+    private void addStringToken(String token) {
         tokens.add("<stringConstant>" + token + "</stringConstant>");
     }
 
-    public void addToken(String token) {
+    private void addToken(String token) {
         if(token.chars().allMatch(Character::isDigit)) {
             tokens.add("<integerConstant>" + token + "</integerConstant>");
         } else if(isSymbol(token)) {
@@ -80,7 +80,7 @@ public class JackTokenizer {
         }
     }
 
-    public List<String> tokenizeLine(String line) {
+    private List<String> tokenizeLine(String line) {
         String current = "";
         String stringLit = "";
         int length = line.length();

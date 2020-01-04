@@ -8,40 +8,40 @@ public class FileParser {
     String inputExt = "jack";
     String outputExt = "vm";
 
-    public Boolean validateFileType(String path) {
+    private Boolean validateFileType(String path) {
         String[] fileNameArr = path.split("\\.");
         String ext = fileNameArr[fileNameArr.length - 1];
         return ext.equals(this.inputExt);
     }
 
-    public String getOutputFilePath(String path) {
+    private String getOutputFilePath(String path) {
         String[] fileNameArr = path.split("\\/");
         String outputFile = fileNameArr[fileNameArr.length - 1].split("\\.")[0] + "." + this.outputExt;
         fileNameArr[fileNameArr.length - 1] = outputFile;
         return String.join("/", fileNameArr);
     }
 
-    public String getShortFileName(String path) {
+    private String getShortFileName(String path) {
         String[] fileNameArr = path.split("\\/");
         String[] fileNameArr2 = fileNameArr[fileNameArr.length - 1].split("\\.");
         return fileNameArr2[0];
     }
 
-    public BufferedReader getBufferedReader(String path) throws Exception {
+    private BufferedReader getBufferedReader(String path) throws Exception {
         File file = new File(path);
         FileReader fr = new FileReader(file);
         BufferedReader br = new BufferedReader(fr);
         return br;
     }
 
-    public BufferedWriter getBufferedWriter(String path) throws Exception {
+    private BufferedWriter getBufferedWriter(String path) throws Exception {
         File file = new File(path);
         FileWriter fr = new FileWriter(file);
         BufferedWriter br = new BufferedWriter(fr);
         return br;
     }
 
-    public void translateFile(BufferedReader br, BufferedWriter bw, String fileName) throws Exception {
+    private void translateFile(BufferedReader br, BufferedWriter bw, String fileName) throws Exception {
         Formatter formatter = new Formatter();
         JackTokenizer tokenizer = new JackTokenizer();
         CompilationEngine compilationEngine = new CompilationEngine();
@@ -54,8 +54,8 @@ public class FileParser {
         
         List<String> formattedContents = formatter.format(contents);
         List<String> tokens = tokenizer.tokenize(formattedContents);
-        List<String> xml = compilationEngine.compile(tokens);
-        xml.forEach(line -> {
+        List<String> vmCode = compilationEngine.compile(tokens);
+        vmCode.forEach(line -> {
             try {
                 bw.write(line + "\n");
             } catch(IOException e) {
@@ -66,7 +66,7 @@ public class FileParser {
         bw.close();
     }
 
-    public void recurseThroughFiles(String args[]) throws Exception {
+    private void recurseThroughFiles(String args[]) throws Exception {
         for (String path: args) {
             File filePath = new File(path);
             if(filePath.isDirectory()) {

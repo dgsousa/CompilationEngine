@@ -4,7 +4,7 @@ import java.util.stream.Collectors;
 
 public class Formatter {
 
-    public Boolean isBlankLine(String line) {
+    private Boolean isBlankLine(String line) {
         if(line.length() == 0) {
             return true;
         }
@@ -25,7 +25,7 @@ public class Formatter {
         return !hasNonBlank;
     }
 
-    public Boolean isComment(String line) {
+    private Boolean isComment(String line) {
         char[] chars = line.toCharArray();
         int counter = 0;
         int length = line.length();
@@ -51,11 +51,11 @@ public class Formatter {
         return false;
     }
 
-    public Boolean isNotBlankLineOrComment(String line) {
+    private Boolean isNotBlankLineOrComment(String line) {
         return !(isBlankLine(line) || isComment(line));
     }
 
-    public String removeWhitespaceAndComments(String line) {
+    private String removeWhitespaceAndComments(String line) {
         if(line.length() == 1) {
             return line;
         }
