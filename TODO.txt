@@ -1,14 +1,13 @@
 Refactoring
 
-STEP 1
+STEP 1 
 - add full syntax validation
-- refactor for organization
-- perfomance optimizations (stop doing so many lookups/checks)
-- split out modules ?
+- validation for possible runtime errors?
 
-STEP 1
+STEP 2
 // - Stop treating all non pre-fixed functions like methods ???? (Probably not)
 - full type checking ?
 - add mechanism to check function/method existence on a class?
 - parallelize
+- unit testing?
 

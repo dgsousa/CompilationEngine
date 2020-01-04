@@ -14,6 +14,7 @@ public class Utils {
         put("&gt;", "gt");
         put("&lt;", "lt");
     }};
+    
     private static HashMap<String, String> unaryOpCodes = new HashMap<String, String>() {{
         put("~", "not");
         put("-", "neg");
