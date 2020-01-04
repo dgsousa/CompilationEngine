@@ -1,7 +1,7 @@
 package tokenutils;
 
 import java.util.List;
-import utils.Utils.*;
+import utils.Utils;
 
 public class TokenUtils {
     public static String getTokenType(String token) {
